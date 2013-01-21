@@ -76,7 +76,7 @@ lib4ti2sources =				\
 	BitSetStream.cpp			\
 	Bounded.cpp				\
 	CircuitsAPI.cpp				\
-	CircuitOptions.cpp				\
+	CircuitOptions.cpp			\
 	Completion.cpp				\
 	DiagonalAlgorithm.cpp			\
 	EliminateAlgorithm.cpp			\
@@ -103,9 +103,9 @@ lib4ti2sources =				\
 	Options.cpp				\
 	OrderedCompletion.cpp			\
 	ProjectLiftGenSet.cpp			\
-	QSolveAlgorithm.cpp 		\
-	QSolveAPI.cpp			\
-	RayAlgorithm.cpp				\
+	QSolveAlgorithm.cpp 			\
+	QSolveAPI.cpp				\
+	RayAlgorithm.cpp			\
 	RaysAPI.cpp				\
 	SaturationGenSet.cpp			\
 	ShortDenseIndexSet.cpp			\
@@ -116,7 +116,7 @@ lib4ti2sources =				\
 	Timer.cpp				\
 	Truncated.cpp				\
 	VectorArray.cpp				\
-	VectorArrayAPI.cpp				\
+	VectorArrayAPI.cpp			\
 	VectorArrayStream.cpp			\
 	Vector.cpp				\
 	VectorStream.cpp			\
