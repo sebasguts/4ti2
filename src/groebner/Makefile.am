@@ -146,7 +146,7 @@ groebnerinclude_HEADERS =			\
 	BitSetStream.h				\
 	Bounded.h				\
 	CircuitsAPI.h				\
-	CircuitOptions.h				\
+	CircuitOptions.h			\
 	CircuitImplementation.h			\
 	CircuitMatrixAlgorithm.h		\
 	CircuitSupportAlgorithm.h		\
@@ -186,13 +186,13 @@ groebnerinclude_HEADERS =			\
 	OrderedCompletion.h			\
 	Permutation.h				\
 	ProjectLiftGenSet.h			\
-	QSolveAlgorithm.h		\
-	QSolveConsOrder.h		\
-	QSolveVariant.h			\
+	QSolveAlgorithm.h			\
+	QSolveConsOrder.h			\
+	QSolveVariant.h				\
 	QSolveAPI.h				\
 	RayImplementation.h			\
 	RayMatrixAlgorithm.h			\
-	RayAlgorithm.h 			\
+	RayAlgorithm.h 				\
 	RaysAPI.h				\
 	RaySupportAlgorithm.h			\
 	Reduction.h				\
