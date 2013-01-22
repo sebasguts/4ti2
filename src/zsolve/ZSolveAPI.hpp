@@ -67,10 +67,10 @@ public:
 
 protected:
 
-    // Extract the output after running the algorithm.
+    /// Extract the output after running the algorithm.
     virtual void extract_results(Algorithm <T>* algorithm);
 
-    // Checks whether the input data is in a consistent state.
+    /// Checks whether the input data is in a consistent state.
     virtual void check_consistency();
 
     Options options;
@@ -127,6 +127,7 @@ ZSolveAPI<T>::set_options(const Options& o)
     options = o;
 }
 
+/// Reads in all possible input files
 template <class T>
 void
 ZSolveAPI<T>::read(const char* project_c_str)
@@ -279,7 +280,7 @@ ZSolveAPI<T>::compute()
         algorithm = new Algorithm <T> (backup_file, controller);
     }
     else if (mat) {
-        // TODO: transfer rhs, ub, lb, sign and rel.
+        /// @TODO: transfer rhs, ub, lb, sign and rel.
         T* rhs_vec = create_zero_vector <T> (mat->data.height());
         if (rhs) { 
             for (size_t i = 0; i < rhs->data.width(); ++i) {
@@ -305,7 +306,7 @@ ZSolveAPI<T>::compute()
                         system->get_variable(i).set(false);
                         break;
                     default:
-                        // TODO: The following error message should be more informative.
+                        /// @TODO: The following error message should be more informative.
                         throw IOException("Unknown sign value.");
                 }
             }
@@ -323,7 +324,7 @@ ZSolveAPI<T>::compute()
                         system->get_relation(i).set(Relation<T> :: LesserEqual);
                         break;
                     default:
-                        // TODO: The following error message should be more informative.
+                        /// @TODO: The following error message should be more informative.
                         throw IOException("Unknown relation value.");
                 }
             }
@@ -344,7 +345,7 @@ ZSolveAPI<T>::compute()
         delete system;
     }
     else if (lat) {
-        // TODO: transfer ub, lb, and sign.
+        /// @TODO: transfer ub, lb, and sign.
         Lattice <T> * lattice = new Lattice <T> (&lat->data, free_default, lower_default, upper_default);
         if (sign) {
             for (size_t i = 0; i < sign->data.width(); ++i) {
@@ -362,7 +363,7 @@ ZSolveAPI<T>::compute()
                         lattice->get_variable(i).set(false);
                         break;
                     default:
-                        // TODO: The following error message should be more informative.
+                        /// @TODO: The following error message should be more informative.
                         throw IOException("Unknown sign value.");
                 }
             }
