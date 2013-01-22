@@ -11,3 +11,16 @@
 *.lai
 *.la
 *.a
+
+# Various automake things
+Makefile.in
+configure
+aclocal.m4
+autom4te.cache
+config.guess
+config.sub
+depcomp
+install-sh
+ltmain.sh
+missing
+src/config.h.in
