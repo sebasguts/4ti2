@@ -41,3 +41,6 @@ test/flavorsum
 test/ppi/check-ppi
 test/reportfailures
 test/subdirsum
+
+# Source doc
+doxygen-doc/

@@ -219,4 +219,16 @@ if test "$enable_swig" = yes; then
 fi
 AM_CONDITIONAL([ENABLE_SWIG], [ test x${enable_swig} == xyes ])
 
+## Set some doxygen features
+DX_HTML_FEATURE(ON)
+DX_DOT_FEATURE(ON)
+DX_CHM_FEATURE(OFF)
+DX_CHI_FEATURE(OFF)
+DX_MAN_FEATURE(OFF)
+DX_RTF_FEATURE(OFF)
+DX_XML_FEATURE(OFF)
+DX_PDF_FEATURE(OFF)
+DX_PS_FEATURE(OFF)
+DX_INIT_DOXYGEN(4ti2, doxygen.cfg)
+
 AC_OUTPUT

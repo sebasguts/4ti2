@@ -36,4 +36,6 @@ dist-hook:
 	@echo "**************************************************************"
 endif
 
-EXTRA_DIST = autogen.sh TODO NEWS README README.cvs
+include doxyinclude.am
+
+EXTRA_DIST = autogen.sh TODO NEWS README README.cvs $(DX_CONFIG) doc/html
