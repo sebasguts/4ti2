@@ -54,6 +54,7 @@ zsolveinclude_HEADERS = \
 	LinearSystem.hpp \
 	Lattice.hpp \
 	Algorithm.hpp \
+	ExtendedPottier.hpp \
 	Controller.hpp \
 	DefaultController.hpp \
 	Norms.hpp \

@@ -41,6 +41,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "zsolve/Options.h"
 #include "zsolve/Exception.h"
 #include "zsolve/Algorithm.hpp"
+#include "zsolve/ExtendedPottier.hpp"
 #include "zsolve/DefaultController.hpp"
 
 namespace _4ti2_zsolve_ {
@@ -308,7 +309,8 @@ ZSolveAPI<T>::compute()
             throw IOException ("Started in resume mode, but no backup file found!\n", false);
         }
         backup_file >> options;
-        algorithm = new Algorithm <T> (backup_file, controller);
+        algorithm = new ExtendedPottier <T>;
+	algorithm->init(backup_file, controller);
     }
     else if (mat) {
         /// @TODO: transfer rhs, ub, lb, sign and rel.
@@ -372,7 +374,8 @@ ZSolveAPI<T>::compute()
         }
 
         system->cancel_down();
-        algorithm = new Algorithm <T> (system, controller);
+        algorithm = new ExtendedPottier <T>;
+	algorithm->init(system, controller);
         delete system;
     }
     else if (lat) {
@@ -411,7 +414,8 @@ ZSolveAPI<T>::compute()
         }
 
         lattice->reduce_gaussian();
-        algorithm = new Algorithm <T> (lattice, controller);
+        algorithm = new ExtendedPottier <T>;
+	algorithm->init(lattice, controller);
         delete lattice;
     }
     else {
