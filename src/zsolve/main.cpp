@@ -41,6 +41,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 using namespace _4ti2_zsolve_;
 
+/// \file  
+/** 
+ * Entry point for zsolve.  Reads options and creates a _4ti2_state.
+ * Calls state->compute().
+ * 
+ * @param argc arg counter
+ * @param argv arg pointer
+ * 
+ * @return return value
+ */
 int main (int argc, char **argv)
 {
     Options options (argc, argv);
@@ -71,4 +81,3 @@ int main (int argc, char **argv)
         return 1;
     }
 }
-
