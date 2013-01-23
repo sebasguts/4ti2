@@ -45,6 +45,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 namespace _4ti2_zsolve_ {
 
+/** 
+ * \brief interface to actual computation done by zsolve.
+ * 
+ */
+
 template <class T>
 class ZSolveAPI : public _4ti2_state {
 public:
@@ -67,24 +72,22 @@ public:
 
 protected:
 
-    /// Extract the output after running the algorithm.
     virtual void extract_results(Algorithm <T>* algorithm);
 
-    /// Checks whether the input data is in a consistent state.
     virtual void check_consistency();
 
     Options options;
 
-    VectorArrayAPI<T>* mat;
-    VectorArrayAPI<T>* lat;
-    VectorArrayAPI<T>* rhs;
-    BoundAPI<T>* ub;
-    BoundAPI<T>* lb;
-    RelAPI* rel;
-    SignAPI* sign;
-    VectorArrayAPI<T>* zinhom;
-    VectorArrayAPI<T>* zhom;
-    VectorArrayAPI<T>* zfree;
+    VectorArrayAPI<T>* mat; ///< matrix whose kernel is the lattice.
+    VectorArrayAPI<T>* lat; ///< lattice basis
+    VectorArrayAPI<T>* rhs; ///< right hand side of a system
+    BoundAPI<T>* ub; ///< upper bound
+    BoundAPI<T>* lb; ///< lower bound
+    RelAPI* rel; ///< relations
+    SignAPI* sign; ///< sign pattern
+    VectorArrayAPI<T>* zinhom;  ///< inhomogenenous part of the solution
+    VectorArrayAPI<T>* zhom; ///< homogeneous part of the solution
+    VectorArrayAPI<T>* zfree; ///< free part of the solution
 
     bool free_default;
     T lower_default;
@@ -127,7 +130,9 @@ ZSolveAPI<T>::set_options(const Options& o)
     options = o;
 }
 
-/// Reads in all possible input files
+/// \brief Reads input files
+/// 
+/// The understood files are .mat, .lat, .rhs, .ub, .lb, .rel, .sign.
 template <class T>
 void
 ZSolveAPI<T>::read(const char* project_c_str)
@@ -144,6 +149,7 @@ ZSolveAPI<T>::read(const char* project_c_str)
     create_matrix((project + ".sign").c_str(), "sign");
 }
 
+/// Check that the input is a well-defined problem.
 template <class T>
 void
 ZSolveAPI<T>::check_consistency()
@@ -186,6 +192,9 @@ ZSolveAPI<T>::check_consistency()
     }
 }
 
+/// \brief Write solution to files
+///
+/// The output consists of files .zinhom, .zhom, and .zfree
 template <class T>
 void
 ZSolveAPI<T>::write(const char* project_c_str)
@@ -197,6 +206,18 @@ ZSolveAPI<T>::write(const char* project_c_str)
     if (zfree && zfree->data.height() > 0) { zfree->write((project + ".zfree").c_str()); }
 }
 
+/** 
+ * \brief Create empty matrix of the given type and format
+ * 
+ * @param num_rows Number of rows
+ * @param num_cols Number of columns
+ * @param name type of matrix to be allocated.
+ *
+ * For example, if name='mat' then a new VectorArrayAPI is returned,
+ * but if name='lb' then a new BoundAPI is returned.
+ * 
+ * @return A pointer to a new _4ti2_matrix of the correct type.
+ */
 template <class T>
 _4ti2_matrix*
 ZSolveAPI<T>::create_matrix(int num_rows, int num_cols, const char* name)
@@ -212,6 +233,7 @@ ZSolveAPI<T>::create_matrix(int num_rows, int num_cols, const char* name)
     return 0;
 }
 
+/// Read matrix from file
 template <class T>
 _4ti2_matrix*
 ZSolveAPI<T>::create_matrix(const char* filename, const char* name)
@@ -221,6 +243,8 @@ ZSolveAPI<T>::create_matrix(const char* filename, const char* name)
     return create_matrix(file, name);
 }
 
+
+/// Create matrix from an istream.
 template <class T>
 _4ti2_matrix*
 ZSolveAPI<T>::create_matrix(std::istream&in, const char* name)
@@ -232,6 +256,7 @@ ZSolveAPI<T>::create_matrix(std::istream&in, const char* name)
     return mat;
 }
 
+/// Access to members
 template <class T>
 _4ti2_matrix*
 ZSolveAPI<T>::get_matrix(const char* name)
@@ -250,6 +275,12 @@ ZSolveAPI<T>::get_matrix(const char* name)
     return 0;
 }
 
+/** 
+ * \brief Run the actual computation
+ * 
+ * Calling this function kicks off the actual computation by
+ * instantiating an Algorithm and calling its compute function.
+ */
 template <class T>
 void
 ZSolveAPI<T>::compute()
@@ -388,7 +419,8 @@ ZSolveAPI<T>::compute()
                         + options.project () + ".backup found!");
     }
 
-	algorithm->compute (options.backup_frequency ());
+    // Actual computation starts here.
+    algorithm->compute (options.backup_frequency ());
 
     algorithm->log_maxnorm ();
 
@@ -400,6 +432,7 @@ ZSolveAPI<T>::compute()
     if (log_file) { delete log_file; }
 }
 
+/// Extract results after compute was called on Algorithm.
 template <class T>
 void
 ZSolveAPI<T>::extract_results(Algorithm <T>* algorithm)

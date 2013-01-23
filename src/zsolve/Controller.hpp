@@ -33,6 +33,14 @@ namespace _4ti2_zsolve_
 
 template <typename T> class Algorithm;
 
+/**
+ * \brief Interface for logging and backup
+ *
+ * A Controller is an interface for logging and backup of a zsolve
+ * computation.  The default implementation is DefaultController.
+ * 
+ */
+
 template <typename T> class Controller
 {
 public:

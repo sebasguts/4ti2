@@ -33,6 +33,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 namespace _4ti2_zsolve_
 {
 
+/**
+ * \brief the default implementation of Controller
+ * 
+ */
+
 template <typename T> class DefaultController : public Controller <T>
 {
 protected:
