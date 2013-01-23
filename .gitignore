@@ -12,6 +12,28 @@
 *.la
 *.a
 
+# Binaries
+src/groebner/4ti2gmp
+src/groebner/4ti2int32
+src/groebner/4ti2int64
+src/groebner/circuits
+src/groebner/groebner
+src/groebner/markov
+src/groebner/minimize
+src/groebner/normalform
+src/groebner/qsolve
+src/groebner/rays
+src/groebner/walk
+src/groebner/zbasis
+src/ppi/ppi
+src/util/genmodel
+src/util/gensymm
+src/util/output
+src/zsolve/graver
+src/zsolve/hilbert
+src/zsolve/zsolve
+
+
 # Various automake things
 Makefile
 Makefile.in
