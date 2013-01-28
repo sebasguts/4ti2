@@ -1,0 +1,5 @@
+.num_failures*
+qsolve/api/qsolve_main
+qsolve/api/test_input_conversion_64_to_gmp
+qsolve/api/test_input_conversion_gmp_to_64
+zsolve/api/test_zsolve_api
