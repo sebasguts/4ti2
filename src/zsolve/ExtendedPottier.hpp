@@ -31,6 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "zsolve/Norms.hpp"
 #include "zsolve/Heuristics.hpp"
 #include "zsolve/Timer.h"
+#include "zsolve/ValueTree.hpp"
 
 namespace _4ti2_zsolve_
 {
@@ -40,53 +41,6 @@ template <typename T> class Controller;
 template <typename T> 
 class ExtendedPottier : public Algorithm <T>
 {
-protected:
-    template <typename U> class ValueTree;
-
-    template <typename U> class ValueTreeNode
-    {
-    public:
-        ValueTree <U> * sub_tree;
-        U value;
-
-        ValueTreeNode (U v, size_t vid)
-        {
-            sub_tree = new ValueTree <U> ();
-            sub_tree->vector_indices.push_back (vid);
-            value = v;
-        }
-
-        ~ValueTreeNode ()
-        {
-            delete sub_tree;
-        }
-    };
-
-    template <typename U> class ValueTree
-    {
-    public:
-        int level;
-        ValueTree <U>* zero;
-        std::vector<ValueTreeNode <U> *> pos, neg;
-        std::vector<size_t> vector_indices;
-
-        ValueTree ()
-        {
-            level = -1;
-            zero = NULL;
-        }
-
-        ~ValueTree ()
-        {
-            if (zero != NULL)
-                delete zero;
-            for (size_t i = 0; i < pos.size (); i++)
-                delete pos[i];
-            for (size_t i = 0; i < neg.size (); i++)
-                delete neg[i];
-        }
-    };
-
 protected:
     typedef std::map <T, ValueTree <T> *> RootMap;
     typedef std::map <NormPair <T>, bool> NormMap;
