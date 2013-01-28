@@ -69,7 +69,8 @@ zsolveinclude_HEADERS = \
 	SignAPI.h \
 	ZSolveAPI.hpp \
 	HilbertAPI.hpp \
-	GraverAPI.hpp
+	GraverAPI.hpp \
+	ValueTree.hpp
 
 zsolvesources =	\
 	main.cpp

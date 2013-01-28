@@ -2,8 +2,8 @@
 4ti2 -- A software package for algebraic, geometric and combinatorial
 problems on linear spaces.
 
-Copyright (C) 2006 4ti2 team.
-Main author(s): Matthias Walter.
+Copyright (C) 2013 4ti2 team.
+Main author(s): Matthias Walter, Thomas Kahle.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -45,6 +45,11 @@ public:
     }
 };
 
+
+/**
+ * \brief A binary tree with an integer value at each node
+ *
+ */
 template <typename U> class ValueTree
 {
 public:
