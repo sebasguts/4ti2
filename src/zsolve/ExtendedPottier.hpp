@@ -45,15 +45,15 @@ protected:
     typedef std::map <T, ValueTree <T> *> RootMap;
     typedef std::map <NormPair <T>, bool> NormMap;
 
-    Controller <T> * m_controller;
-    Lattice <T> * m_lattice;
+    Controller <T> * m_controller; ///< Controller for computation
+    Lattice <T> * m_lattice; ///< Integer lattice that contains the solutions
 
     T m_maxnorm; ///< current maximum norm
     size_t m_current_variable; ///< current component
     size_t m_variables; ///< components
-    T m_sum_norm; ///< ||u||_1
-    T m_first_norm; ///< ||v||_1
-    T m_second_norm; ///< ||u+v||_1
+    T m_sum_norm; ///< ||u+v||_1
+    T m_first_norm; ///< ||u||_1
+    T m_second_norm; ///< ||v||_1
 
     NormMap m_norms;
     RootMap m_roots; ///< roots of valuetrees
@@ -68,6 +68,11 @@ protected:
 
 protected:
 
+    /**
+     * \brief ???
+     *
+     * 
+     */
     void insert_tree (ValueTree <T> *& tree, size_t vid, bool split_recursive)
     {
         if (tree->level < 0)
@@ -462,6 +467,12 @@ protected:
         std::cout << "============================ /DUMP ==========================" << std::endl;
     }
 */
+    
+    
+    /** 
+     * \brief Initialize reduction trees
+     * 
+     */
     void create_trees ()
     {
         m_maxnorm = -1;
@@ -561,6 +572,11 @@ protected:
         return Heuristics <T> :: chooseNextVariable (*m_lattice, allowed);
     }
     
+    /**
+     * \brief Do some mysterious preprocessing
+     *
+     * This seems to be a row reduction.
+     */
     void preprocess ()
     {
         T* last_reducer = NULL;
@@ -711,6 +727,24 @@ public:
         delete m_lattice;
     }
 
+
+    /**
+     * What does compute do?
+     *
+     * At time of start, some things have been initialized:
+     *
+     * After a normal run of init, the following have been set:
+     * 
+     *    m_maxnorm = -1;
+     *    m_current_variable = 0;
+     *    m_variables = m_lattice->variables ();
+     *    m_sum_norm = m_first_norm = m_second_norm = 0;
+     *    m_sum_vector = m_first_vector = m_second_vector = NULL;
+     *    m_symmetric = true;
+     *     
+     * The linear system and a controller have been set up.
+     * 
+     */
     void compute (int backup_frequency = 0)
     {
         m_norms.clear ();
@@ -722,6 +756,9 @@ public:
 
 	//std::cout << "\n\nSTARTED ON " << m_current_variable << ", " << m_sum_norm << ", " << m_first_norm << std::endl;
 
+	// This for loop iterates of the variables of the system.  It
+	// assumes that the system is already solved on the variables
+	// that are done and solves it for the next variable.
         for (; m_current_variable < m_variables; m_current_variable++)
         {
             // DEBUG

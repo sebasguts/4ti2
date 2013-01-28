@@ -49,6 +49,8 @@ public:
 /**
  * \brief A binary tree with an integer value at each node
  *
+ * A ValueTree stores integer vectors according to the norm of
+ * projections.
  */
 template <typename U> class ValueTree
 {
