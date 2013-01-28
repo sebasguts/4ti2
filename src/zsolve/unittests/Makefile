@@ -1,5 +1,6 @@
 test_sources = \
 	ValueTree.cpp \
+	Vector.cpp \
 	VectorArray.cpp \
 	testTest.cpp
 
