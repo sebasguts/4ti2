@@ -32,6 +32,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 namespace _4ti2_zsolve_
 {
 
+
+/**
+ * \brief An integer lattice
+ *
+ * Integer lattices are derived from VectorArray and
+ * VariablePropertires.  All members are derived, this class does not
+ * introduce any new members.
+ */
 template <typename T> class Lattice : public VectorArray <T>, public VariableProperties <T>
 {
 public:
@@ -39,7 +47,7 @@ public:
 
     Lattice (VectorArray <T> * vectors, bool free, const T& lower, const T& upper) : VectorArray <T> (*vectors), VariableProperties <T> (vectors->variables (), free, lower, upper) { }
 
-    Lattice (Lattice <T>& other) : VectorArray <T> ((VectorArray <T> &)other), VariableProperties <T> (&other) {}
+    Lattice (Lattice <T>& other) : VectorArray <T> ((VectorArray <T> &)other), VariableProperties <T> (&other) {} ///< Copy constructor
 
     bool check_consistency () const
     {

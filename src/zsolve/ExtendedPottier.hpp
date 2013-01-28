@@ -94,23 +94,23 @@ protected:
     Controller <T> * m_controller;
     Lattice <T> * m_lattice;
 
-    T m_maxnorm; // current maximum norm
-    size_t m_current_variable; // current component
-    size_t m_variables; // components
-    T m_sum_norm; // ||u||_1
-    T m_first_norm; // ||v||_1
-    T m_second_norm; // ||u+v||_1
+    T m_maxnorm; ///< current maximum norm
+    size_t m_current_variable; ///< current component
+    size_t m_variables; ///< components
+    T m_sum_norm; ///< ||u||_1
+    T m_first_norm; ///< ||v||_1
+    T m_second_norm; ///< ||u+v||_1
 
     NormMap m_norms;
-    RootMap m_roots; // roots of valuetrees
-    T* m_first_vector; // u
-    T* m_second_vector; // v
-    T* m_sum_vector; // u+v
+    RootMap m_roots; ///< roots of valuetrees
+    T* m_first_vector; ///< u
+    T* m_second_vector; ///< v
+    T* m_sum_vector; ///< u+v
 
-    bool m_symmetric; // are 0 .. current symmetric components?
+    bool m_symmetric; ///< are 0 .. current symmetric components?
 
-    Timer m_backup_timer; // timer
-    int m_backup_frequency; // frequency for backup
+    Timer m_backup_timer; ///< timer
+    int m_backup_frequency; ///< frequency for backup
 
 protected:
 

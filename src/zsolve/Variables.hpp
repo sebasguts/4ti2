@@ -32,6 +32,22 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 namespace _4ti2_zsolve_
 {
 
+/**
+ * \brief Properties of variables in an integer system
+ *
+ * Each variable x_i in the interger system Ax = b, can have various
+ * properties, such as upper or lower bounds, freeness, or a unique
+ * id.  This class bundles such properties.
+ *
+ * An important property is the 'sign' of a variable, it encodes how
+ * strong the representation properties of final solutions are.  For
+ * instance if sign(x_i) = 1, then every solution can be written in
+ * terms of the zsolve solution vectors in such a way that the
+ * composition of the x_i entry is with positive coefficients.  If
+ * sign(x_i) = -1, then the coefficients all have to be negative.
+ * sign(x_i) = 2 is code for the union of +1 and -1 which means that,
+ * if imposed for all variables, a Graver basis is computed.
+ */
 template <typename T> class VariableProperty
 {
 protected:
@@ -58,6 +74,7 @@ public:
 
     void set_bound (bool set_lower, const T& value)
     {
+	// TK: This is a really bad side effect leading to bugs.
         if (m_is_free)
             return;
 
