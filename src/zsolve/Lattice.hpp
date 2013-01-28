@@ -81,7 +81,7 @@ public:
 
     void filter_bounds (size_t current)
     {
-        for (size_t i = 0; i < VectorArray <T> :: m_vectors; i++)
+        for (size_t i = 0; i < VectorArray <T> :: m_data.size(); i++)
         {
             if (! VariableProperties <T> :: m_variable_properties[current]->check_bounds (VectorArray <T> :: m_data[i][current]))
             {
@@ -107,10 +107,10 @@ public:
             int current_index;
             T current_value;
             int best_index = column;
-            T best_value = VectorArray <T> :: gcd_column (column, column, VectorArray <T> :: m_vectors);
+            T best_value = VectorArray <T> :: gcd_column (column, column, VectorArray <T> :: m_data.size());
             for (current_index = column+1; current_index < (int) VectorArray <T> :: m_variables; current_index++)
             {
-                current_value = VectorArray <T> :: gcd_column (current_index, column, VectorArray <T> :: m_vectors);
+                current_value = VectorArray <T> :: gcd_column (current_index, column, VectorArray <T> :: m_data.size());
                 if (current_value < best_value)
                 {
                     best_index = current_index;
@@ -123,7 +123,7 @@ public:
             {
                 best_index = -1;
                 best_value = 0;
-                for (current_index = column; current_index < (int) VectorArray <T> :: m_vectors; current_index++)
+                for (current_index = column; current_index < (int) VectorArray <T> :: m_data.size(); current_index++)
                 {
                     current_value = abs (VectorArray <T> :: m_data[current_index][column]);
                     if ( current_value > 0 && (best_index < 0 || current_value < best_index))
@@ -139,7 +139,7 @@ public:
                 VectorArray <T> :: swap_rows (column, best_index);
 
                 bool repeat = false;
-                for (size_t i = 0; i < VectorArray <T> :: m_vectors; i++)
+                for (size_t i = 0; i < VectorArray <T> :: m_data.size(); i++)
                 {
                     if (i == column)
                         continue;
@@ -155,7 +155,7 @@ public:
             }
         }
 
-        for (size_t i = 0; i < VectorArray <T> :: m_vectors; i++)
+        for (size_t i = 0; i < VectorArray <T> :: m_data.size(); i++)
         {
             if (is_zero_vector (VectorArray <T> :: m_data[i], VectorArray <T> :: m_variables))
             {
