@@ -88,8 +88,8 @@ protected:
 //            std::cout << "insert_tree::search on level " << tree->level << " with value " << value << std::endl;
             if (value > 0)
             {
-                typename std::vector<ValueTreeNode <T> *>::iterator iter;
-                for (iter = tree->pos.begin (); iter != tree->pos.end (); iter++)
+		auto iter = tree->pos.begin();
+                for (; iter != tree->pos.end (); iter++)
                     if (value <= (*iter)->value)
                         break;
                 if (iter == tree->pos.end() || value != (*iter)->value)
@@ -99,8 +99,8 @@ protected:
             }
             else if (value < 0)
             {
-                typename std::vector<ValueTreeNode <T> *>::iterator iter;
-                for (iter = tree->neg.begin (); iter != tree->neg.end (); iter++)
+		auto iter = tree->neg.begin();
+                for (; iter != tree->neg.end (); iter++)
                     if (value >= (*iter)->value)
                         break;
                 if (iter == tree->neg.end() || value != (*iter)->value)
@@ -170,7 +170,7 @@ protected:
         {
             m_roots[norm] = new ValueTree <T> ();
             
-            for (typename RootMap::iterator i = m_roots.begin (); i != m_roots.end (); i++)
+            for (auto i = m_roots.begin (); i != m_roots.end (); i++)
             {
                 NormPair <T> pair (i->first, norm);
                 m_norms[pair] = true;
@@ -290,7 +290,7 @@ protected:
             T value = m_sum_vector[tree->level];
             if (value > 0)
             {
-                for (typename std::vector<ValueTreeNode <T> *>::iterator iter = tree->pos.begin (); iter != tree->pos.end(); iter++)
+                for (auto iter = tree->pos.begin (); iter != tree->pos.end(); iter++)
                 {
                     if ((*iter)->value > value)
                         break;
@@ -300,7 +300,7 @@ protected:
             }
             else if (value < 0)
             {
-                for (typename std::vector<ValueTreeNode <T> *>::iterator iter = tree->neg.begin (); iter != tree->neg.end(); iter++)
+                for (auto iter = tree->neg.begin (); iter != tree->neg.end(); iter++)
                 {
                     if ((*iter)->value < value)
                         break;
@@ -368,7 +368,7 @@ protected:
 	    m_controller->log_status (m_current_variable+1, m_sum_norm, m_maxnorm, m_first_norm, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
 
         // TODO: norm / 2 ??
-        for (typename RootMap::iterator iter = m_roots.begin (); iter != m_roots.end() && iter->first <= norm/2; iter++)
+        for (auto iter = m_roots.begin (); iter != m_roots.end() && iter->first <= norm/2; iter++)
         {
             if (enum_reducer (iter->second))
                 return;
@@ -457,8 +457,7 @@ protected:
     void dump_trees ()
     {
         std::cout << "============================ DUMP ==========================" << std::endl;
-        typename std::map<T, ValueTree <T> *>::iterator iter;
-        for (iter = m_roots.begin (); iter != m_roots.end (); iter++)
+        for (auto iter = m_roots.begin (); iter != m_roots.end (); iter++)
         {
             std::cout << "dump_trees::root[" << iter->first << "]" << std::endl;
             dump_tree (iter->second);
@@ -494,8 +493,7 @@ protected:
 //        std::cout << "Before SPLIT:\n\n";
 //        dump_trees ();
 
-        typename std::map<T, ValueTree <T> *>::iterator iter;
-        for (iter = m_roots.begin (); iter != m_roots.end (); iter++)
+        for (auto iter = m_roots.begin (); iter != m_roots.end (); iter++)
         {
             split_tree (iter->second);
         }
@@ -506,8 +504,7 @@ protected:
 
     void delete_trees ()
     {
-        typename std::map<T, ValueTree <T> *>::iterator iter;
-        for (iter = m_roots.begin (); iter != m_roots.end (); iter++)
+        for (auto iter = m_roots.begin (); iter != m_roots.end (); iter++)
         {
             delete iter->second;
         }
@@ -791,9 +788,9 @@ public:
 
             // create norms
             m_norms.clear ();
-            for (typename RootMap::iterator i = m_roots.begin (); i != m_roots.end (); i++)
+            for (auto i = m_roots.begin (); i != m_roots.end (); i++)
             {
-                for (typename RootMap::iterator j = m_roots.begin (); j != m_roots.end (); j++)
+                for (auto j = m_roots.begin (); j != m_roots.end (); j++)
                 {
                     NormPair <T> pair (i->first, j->first);
                     m_norms[pair] = true;
@@ -802,7 +799,7 @@ public:
 
             // norm pairs
             T old_sum = -1;
-	    typename NormMap::iterator i = m_norms.begin ();
+	    auto i = m_norms.begin ();
 	    // scroll until old pair is reached
 	    if (m_sum_norm != 0)
 	    {
