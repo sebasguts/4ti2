@@ -188,10 +188,13 @@ template <typename T> bool check_vector_consistency (T* v, size_t size)
     if (v == NULL || size == 0)
         return false;
 
-    T result = 0;
-    for (size_t i = 0; i < size; i++)
-    {
-        result += abs (v[i]);
+    // Note: By definition, there is now way to check if size is the
+    // correct size; Workaround: Touch each element.  However, the
+    // compiler may throw this code away.
+    T* a = NULL;
+    for (size_t i = 0; i < size; i++) {
+	a = &(v[i]);
+	assert (a != NULL);
     }
 
     return true;
