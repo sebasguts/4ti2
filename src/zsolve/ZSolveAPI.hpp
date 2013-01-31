@@ -444,9 +444,9 @@ ZSolveAPI<T>::extract_results(Algorithm <T>* algorithm)
     delete zinhom;
     delete zhom;
     delete zfree;
-    zinhom = new VectorArrayAPI <T> (0, algorithm->get_result_variables ());
-    zhom = new VectorArrayAPI <T> (0, algorithm->get_result_variables ());
-    zfree = new VectorArrayAPI <T> (0, algorithm->get_result_variables ());
+    zinhom = new VectorArrayAPI <T> (0, algorithm->get_result_num_variables ());
+    zhom = new VectorArrayAPI <T> (0, algorithm->get_result_num_variables ());
+    zfree = new VectorArrayAPI <T> (0, algorithm->get_result_num_variables ());
     algorithm->extract_zsolve_results (zinhom->data, zhom->data, zfree->data);
 }
 

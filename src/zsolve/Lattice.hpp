@@ -166,7 +166,7 @@ public:
 
     }
 
-    size_t get_result_variables ()
+    size_t get_result_num_variables ()
     {
         size_t result = 0;
         for (size_t i = 0; i < VectorArray <T> :: m_variables; i++)

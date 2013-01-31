@@ -259,7 +259,7 @@ public:
     {
         if ((m_options.maxnorm () == 1 && final) || m_options.maxnorm () == 2)
         {
-            VectorArray <T> maxnorm (algorithm->get_result_variables ());
+            VectorArray <T> maxnorm (algorithm->get_result_num_variables ());
             T norm = algorithm->extract_maxnorm_results (maxnorm);
 
             if (final)

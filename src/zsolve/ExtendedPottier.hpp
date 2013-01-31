@@ -882,7 +882,7 @@ public:
     void extract_zsolve_results (VectorArray <T>& inhoms, VectorArray <T>& homs, VectorArray <T>& free)
     {
         int split = m_lattice->get_splitter ();
-        int result_variables = m_lattice->get_result_variables ();
+        int result_variables = m_lattice->get_result_num_variables ();
 
         inhoms.clear ();
         homs.clear ();
@@ -937,7 +937,7 @@ public:
     void extract_graver_results (VectorArray <T>& graver)
     {
         assert (m_lattice->get_splitter () == -1);
-        assert (m_lattice->get_result_variables () == m_variables);
+        assert (m_lattice->get_result_num_variables () == m_variables);
 
         graver.clear ();
 
@@ -964,7 +964,7 @@ public:
     void extract_hilbert_results (VectorArray <T>& hilbert)
     {
         assert (m_lattice->get_splitter () == -1);
-        assert (m_lattice->get_result_variables () == m_variables);
+        assert (m_lattice->get_result_num_variables () == m_variables);
 
         hilbert.clear ();
 
@@ -981,7 +981,7 @@ public:
 
     T extract_maxnorm_results (VectorArray <T> & maxnorm)
     {
-        int result_variables = m_lattice->get_result_variables ();
+        int result_variables = m_lattice->get_result_num_variables ();
 
         maxnorm.clear ();
 
@@ -1001,9 +1001,9 @@ public:
         return m_maxnorm;
     }
 
-    size_t get_result_variables () const
+    size_t get_result_num_variables () const
     {
-        return m_lattice->get_result_variables ();
+        return m_lattice->get_result_num_variables ();
     }
 
     void log_maxnorm ()

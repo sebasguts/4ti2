@@ -101,7 +101,7 @@ void
 HilbertAPI<T>::extract_results(Algorithm <T>* algorithm)
 {
     delete ZSolveAPI<T>::zhom;
-    ZSolveAPI<T>::zhom = new VectorArrayAPI <T> (0, algorithm->get_result_variables ());
+    ZSolveAPI<T>::zhom = new VectorArrayAPI <T> (0, algorithm->get_result_num_variables ());
     algorithm->extract_hilbert_results (ZSolveAPI<T>::zhom->data);
 }
 

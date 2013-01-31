@@ -55,7 +55,7 @@ public:
     
     virtual void compute (int backup_frequency) = 0;
     
-    virtual size_t get_result_variables () const = 0;
+    virtual size_t get_result_num_variables () const = 0;
     virtual void log_maxnorm() = 0;
 
     virtual void extract_zsolve_results (  VectorArray <T>& inhoms, 
