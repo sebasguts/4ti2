@@ -110,7 +110,13 @@ public:
         return m_data.size();
     }
 
+    // Deprecated! Use num_variables or width!
     size_t variables () const
+    {
+        return m_variables;
+    }
+
+    size_t num_variables () const
     {
         return m_variables;
     }
