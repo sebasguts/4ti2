@@ -105,6 +105,11 @@ public:
         return m_data.size();
     }
 
+    size_t num_vectors () const
+    {
+        return m_data.size();
+    }
+
     size_t height () const
     {
         return m_data.size();
