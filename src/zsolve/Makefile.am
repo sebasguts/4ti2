@@ -80,6 +80,7 @@ zsolvesources =	\
 
 libzsolve_la_SOURCES = $(libzsolvesources)
 zsolve_SOURCES = $(zsolvesources)
+zsolve_LDFLAGS = -pthread # Compile with thread support (Linux only?)
 zsolve_LDADD = libzsolve.la
 libzsolve_la_CPPFLAGS =
 zsolve_CPPFLAGS = 
