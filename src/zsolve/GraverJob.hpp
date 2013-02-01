@@ -80,6 +80,12 @@ namespace _4ti2_zsolve_
 //     return new VectorArray<T>;
 // }
 
+template <typename T>
+bool
+is_reducible (T* v) {
+    return true;
+}
+
 template <typename T> 
 VectorArray<T> *
 graverJob (const VectorArray<T>& Gr,
@@ -89,7 +95,15 @@ graverJob (const VectorArray<T>& Gr,
 {
     size_t num_vars = current_gens.num_variables();
     VectorArray<T> *result = new VectorArray<T> (num_vars);
-    result->append_vector ( create_zero_vector<T> (num_vars));
+
+    T* v = create_vector<T> (num_vars);
+    for (size_t i = 0; i < Gr.num_vectors(); i++ ) {
+	for (size_t j = 0; j < Gs.num_vectors(); j++ ) {
+	    add_vectors (Gr[i], Gs[j], v, num_vars);
+	    if (!is_reducible (v))
+		result->append_vector ( copy_vector<T> (v, num_vars));
+	}
+    }
     return result;
 }
 
