@@ -82,6 +82,12 @@ public:
     {
         clear ();
     }
+    
+    /// Append content of other array to this array
+    void join (const VectorArray& other) {
+	for (size_t i; i < other.num_vectors(); i++)
+	    append_vector( copy_vector<T> ( other[i], other.num_variables()));
+    }
 
     void clear ()
     {

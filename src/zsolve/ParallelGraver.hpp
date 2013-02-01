@@ -199,7 +199,6 @@ ParallelGraver<T>::compute (int backup_frequency)
 	    for (auto it = jobs.begin(); it != jobs.end(); it++) {
 		if ((*it).sum <= completed_norm+1) {
 			// do it!
-			std::cout << "DenkDenkDenk... " << (*it).sum << std::endl;
 			// A job with the lowest sum is always in the beginning of the
 			// jobs vector: (Check?)
 
@@ -213,7 +212,6 @@ ParallelGraver<T>::compute (int backup_frequency)
 			    std::future < VectorArray<T>* > fut = std::async(
 				std::launch::async, // Compiler can decide launch order?
 				[s,m_current_gens, varindex, it] () {
-				    std::cout << "Creating job"<< std::endl;
 				    return graverJob (*(s->at(it->first)), 
 						      *(s->at(it->second)), 
 						      *(m_current_gens), 
@@ -241,6 +239,8 @@ ParallelGraver<T>::compute (int backup_frequency)
 		    std::cout << "New norm bound : " << norm << std::endl;
 		    max_norm = norm;
 		}
+		// Store new Graver basis elements
+		m_current_gens->join (*result);
 		// Join the result with what is already saved in s under this norm
 		if (s->find(norm) == s->end()){
 		    // not found
@@ -271,8 +271,13 @@ ParallelGraver<T>::compute (int backup_frequency)
 			jobs.push_back ( NormPair<T> (i, completed_norm));
 	    // Keep jobs sorted according to total norm
 	    std::sort(jobs.begin(), jobs.end());
-	}
-    }
+	}; // while (completed_norm < 2*max_norm)
+	// Before stepping to the next lift, rebuild the NormBST
+	std::cout << "Done with variable: " << varindex << " Updating norm map." << std::endl;
+	if (varindex < m_num_variables )
+	    createNormBST(varindex+1);
+	
+    } // for (size_t varindex = 1; varindex < m_num_variables; varindex++){
 }
 
 template <typename T>
