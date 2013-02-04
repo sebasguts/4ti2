@@ -17,6 +17,7 @@ src/groebner/4ti2gmp
 src/groebner/4ti2int32
 src/groebner/4ti2int64
 src/groebner/circuits
+src/groebner/graver
 src/groebner/groebner
 src/groebner/markov
 src/groebner/minimize

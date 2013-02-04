@@ -88,6 +88,7 @@ lib4ti2sources =				\
 	FlipCompletion.cpp			\
 	GeneratingSet.cpp			\
 	Globals.cpp				\
+	GraverBasis.cpp				\
 	GroebnerBasis.cpp			\
 	HermiteAlgorithm.cpp			\
 	HybridGenSet.cpp			\
@@ -102,6 +103,7 @@ lib4ti2sources =				\
 	Optimise.cpp				\
 	Options.cpp				\
 	OrderedCompletion.cpp			\
+	ParallelGraver.cpp			\
 	ProjectLiftGenSet.cpp			\
 	QSolveAlgorithm.cpp 			\
 	QSolveAPI.cpp				\
@@ -166,6 +168,7 @@ groebnerinclude_HEADERS =			\
 	Generation.h				\
 	Globals.h				\
 	Grading.h				\
+	GraverBasis.h				\
 	GroebnerBasis.h				\
 	HermiteAlgorithm.h			\
 	HybridGenSet.h				\
@@ -185,6 +188,7 @@ groebnerinclude_HEADERS =			\
 	Options.h				\
 	OrderedCompletion.h			\
 	Permutation.h				\
+	ParallelGraver.h			\
 	ProjectLiftGenSet.h			\
 	QSolveAlgorithm.h			\
 	QSolveConsOrder.h			\
@@ -235,6 +239,7 @@ groebnerinclude_HEADERS +=			\
 
 4ti2sources =					\
 	circuits_main.cpp			\
+	graver_main.cpp				\
 	groebner_main.cpp			\
 	markov_main.cpp				\
 	minimize_main.cpp			\
@@ -248,6 +253,7 @@ groebnerinclude_HEADERS +=			\
 # These headers are not installed
 noinst_HEADERS = 				\
 	circuits_main.h				\
+	graver_main.h				\
 	groebner_main.h				\
 	markov_main.h				\
 	minimize_main.h				\
@@ -259,6 +265,7 @@ noinst_HEADERS = 				\
 
 WRAPPERSCRIPTS =				\
 	circuits				\
+	graver					\
 	groebner				\
 	markov					\
 	minimize				\
@@ -266,7 +273,7 @@ WRAPPERSCRIPTS =				\
 	qsolve					\
 	rays					\
 	walk					\
-	zbasis
+	zbasis					
 
 nodist_bin_SCRIPTS = $(WRAPPERSCRIPTS)
 DISTCLEANFILES = $(WRAPPERSCRIPTS)

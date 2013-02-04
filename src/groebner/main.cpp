@@ -23,6 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/Globals.h"
 #include "groebner/DataType.h"
 #include "groebner/Timer.h"
+#include "groebner/graver_main.h"
 #include "groebner/groebner_main.h"
 #include "groebner/markov_main.h"
 #include "groebner/qsolve_main.h"
@@ -84,6 +85,7 @@ try
     executables.insert(ExecutableMap::value_type("minimize", &minimize_main));
     executables.insert(ExecutableMap::value_type("normalform", &normalform_main));
     executables.insert(ExecutableMap::value_type("walk", &walk_main));
+    executables.insert(ExecutableMap::value_type("graver", &graver_main));
 
     Globals::exec = argv[1];
     ExecutableMap::iterator i = executables.find(Globals::exec);
