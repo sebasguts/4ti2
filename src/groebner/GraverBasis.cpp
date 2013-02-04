@@ -36,6 +36,8 @@ using namespace _4ti2_;
 GraverBasis::GraverBasis( Feasible& _feasible)
 {
     feasible = &_feasible;
+    // Initialize emtpy basis
+    basis = new VectorArray(0, feasible->get_dimension());
     compute();
 }
 

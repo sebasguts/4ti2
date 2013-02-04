@@ -33,7 +33,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/Feasible.h"
 #include "groebner/FeasibleStream.h"
 #include "groebner/GeneratingSet.h"
-#include "groebner/GroebnerBasis.h"
+#include "groebner/GraverBasis.h"
 #include "groebner/Globals.h"
 #include "groebner/Options.h"
 
@@ -57,16 +57,17 @@ _4ti2_::graver_main(int argc, char **argv)
     std::cout << feasible->get_matrix() << std::endl; 
     std::cout << feasible->get_basis() << std::endl; 
 
-    // Read in the file with the generating set.
-    std::string gens_filename(Options::instance()->filename + ".mar");
-    VectorArray* gens = input_VectorArray(feasible->get_dimension(), gens_filename.c_str());
+    // Read in the file with the generating set ?
+    // std::string gens_filename(Options::instance()->filename + ".mar");
+    // VectorArray* gens = input_VectorArray(feasible->get_dimension(), gens_filename.c_str());
 
-    // GraverBasis* gb = ...
+    GraverBasis* gb = new GraverBasis ( *feasible );
 
-    // Output the Groebner basis.
-//    std::string graver_filename(Options::instance()->filename + ".gra");
-//    output(graver_filename.c_str(), gb.get_graver_basis());
+    // Output the Graver basis.
+    std::string graver_filename(Options::instance()->filename + ".gra");
+    output(graver_filename.c_str(), gb->get_graver_basis());
 
+    delete gb;
     delete feasible;
 
     return 0;

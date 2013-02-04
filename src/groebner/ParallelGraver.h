@@ -24,9 +24,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define _4ti2_groebner__ParallelGraver__
 
 #include "groebner/Feasible.h"
+#include "groebner/Permutation.h"
 
 namespace _4ti2_
 {
+
+typedef LongDenseIndexSet IndexSet;
 
 class ParallelGraver
 {
@@ -39,6 +42,7 @@ public:
 	VectorArray& basis);
 
 protected:
+    Permutation permute_full_rank_to_left (VectorArray& va);
 
 };
 
