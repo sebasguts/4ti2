@@ -146,7 +146,7 @@ VectorArray::remove(Index start, Index end)
     assert((Size) vectors.size() == number);
 }
 
-// Matrix multiplication.  Computes AxB^T.
+/// Matrix multiplication.  Computes AxB^T.
 void
 VectorArray::dot(
                 const VectorArray& vs1,
@@ -162,7 +162,7 @@ VectorArray::dot(
     }
 }
 
-// Matrix multiplication.  Computes BxA^T.
+/// Matrix multiplication.  Computes BxA^T.
 void
 VectorArray::dot(
                 const VectorArray& vs1,
@@ -301,18 +301,33 @@ VectorArray::sort()
     std::sort(vectors.begin(), vectors.end(), &compare);
 }
 
+/** 
+ * Permute each Vector in the array
+ * 
+ * @param p Column permutation to apply to every vector
+ */
 void
 VectorArray::permute(const Permutation& p)
 {
     for (Index i = 0; i < number; ++i) { vectors[i]->permute(p); }
 }
 
+
+/** 
+ * Normalise each vector in the array
+ */
 void
 VectorArray::normalise()
 {
     for (Index i = 0; i < number; ++i) { vectors[i]->normalise(); }
 }
 
+/** 
+ * Swap columns in the array
+ * 
+ * @param i1 column one
+ * @param i2 column two
+ */
 void
 VectorArray::swap_indices(Index i1, Index i2)
 {
@@ -327,6 +342,12 @@ VectorArray::swap_indices(Index i1, Index i2)
     }
 }
 
+/** 
+ * Swap rows in the array
+ * 
+ * @param i1 row one
+ * @param i2 row two
+ */
 void
 VectorArray::swap_vectors(Index i1, Index i2)
 {
@@ -338,12 +359,29 @@ VectorArray::swap_vectors(Index i1, Index i2)
     vectors[i2] = temp;
 }
 
+/** 
+ * Assert that the array contains exactly m vectors
+ *
+ * This function deletes excess vectors or insert new zero vectors to
+ * assure that the size is m afterwards.
+ * 
+ * @param m Desired number of vectors in the array
+ */
 void
 VectorArray::renumber(Size m)
 {
     renumber(m, Vector(size));
 }
 
+/** 
+ * Assert that the array contains exactly m vectors
+ *
+ * This function deletes excess vectors or insert new vectors that are
+ * copies of the given vector.
+ * 
+ * @param m desired number of vectors in the array
+ * @param v Vector to fill up the array if needed
+ */
 void
 VectorArray::renumber(Size m, const Vector& v)
 {
