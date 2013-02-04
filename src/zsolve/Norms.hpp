@@ -56,6 +56,13 @@ public:
         second = other.second;
         sum = other.sum;
     }
+
+    NormPair (const NormPair&& other)
+    {
+        first = other.first;
+        second = other.second;
+        sum = other.sum;
+    }
 };
 
 template <typename T> inline bool operator< (const NormPair <T> & a, const NormPair <T> & b)
