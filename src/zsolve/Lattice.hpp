@@ -60,6 +60,13 @@ public:
         return true;
     }
  
+    /** 
+     * \brief Sort columns of the system according to original ordering
+     *
+     * During computations one can swap around columns of the system
+     * as needed.  This function will return them to their original
+     * ordering such that the interface to the user is well defined.
+     */
     void sort_columns ()
     {
         for (size_t i = 0; i < VectorArray <T> :: m_variables; i++)
@@ -74,7 +81,13 @@ public:
         } 
     }
 
-    size_t variables ()
+    /// Depreacted, use num_variables intead
+    size_t variables () const
+    {
+        return VectorArray <T> :: m_variables;
+    }
+
+    size_t num_variables () const
     {
         return VectorArray <T> :: m_variables;
     }
@@ -183,7 +196,6 @@ public:
         return -1;
     }
 
-    
     template <typename X> friend std::ostream& operator<< (std::ostream& out, Lattice <X>& lattice);
 };
 
