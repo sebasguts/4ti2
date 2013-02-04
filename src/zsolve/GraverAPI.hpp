@@ -184,7 +184,7 @@ GraverAPI<T>::compute()
         }
 
         lattice->reduce_gaussian();
-        algorithm = new ExtendedPottier <T>;
+        algorithm = new ParallelGraver <T>;
 	algorithm->init(lattice, controller);
         delete lattice;
     }
