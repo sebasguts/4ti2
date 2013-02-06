@@ -44,8 +44,8 @@ protected:
     GraverBasis();
 
     void compute();
-    VectorArray* basis;
-    Feasible* feasible;
+    VectorArray* basis;  ///< Vectors in the Graver basis
+    Feasible* feasible;  ///< Problem (to be) solved
 };
 
 } // namespace _4ti2_
