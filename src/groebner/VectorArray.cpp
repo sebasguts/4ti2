@@ -295,6 +295,9 @@ VectorArray::is_index_zero(Index index) const
 
 bool compare(const Vector* p1, const Vector* p2) { return *p1 < *p2; }
 
+/** 
+ * \brief Sort array ascending according to order on Vector
+ */
 void
 VectorArray::sort()
 {
@@ -302,7 +305,7 @@ VectorArray::sort()
 }
 
 /** 
- * Permute each Vector in the array
+ * \brief Permute each Vector in the array
  * 
  * @param p Column permutation to apply to every vector
  */
@@ -314,7 +317,7 @@ VectorArray::permute(const Permutation& p)
 
 
 /** 
- * Normalise each vector in the array
+ * \brief Normalise each vector in the array
  */
 void
 VectorArray::normalise()
@@ -323,7 +326,7 @@ VectorArray::normalise()
 }
 
 /** 
- * Swap columns in the array
+ * \brief Swap columns in the array
  * 
  * @param i1 column one
  * @param i2 column two
@@ -343,7 +346,7 @@ VectorArray::swap_indices(Index i1, Index i2)
 }
 
 /** 
- * Swap rows in the array
+ * \brief Swap rows in the array
  * 
  * @param i1 row one
  * @param i2 row two
@@ -360,7 +363,7 @@ VectorArray::swap_vectors(Index i1, Index i2)
 }
 
 /** 
- * Assert that the array contains exactly m vectors
+ * \brief Assert that the array contains exactly m vectors
  *
  * This function deletes excess vectors or insert new zero vectors to
  * assure that the size is m afterwards.
@@ -374,7 +377,7 @@ VectorArray::renumber(Size m)
 }
 
 /** 
- * Assert that the array contains exactly m vectors
+ * \brief Assert that the array contains exactly m vectors
  *
  * This function deletes excess vectors or insert new vectors that are
  * copies of the given vector.
