@@ -25,7 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include "4ti2/4ti2xx.h"
 #include "zsolve/ZSolveAPI.hpp"
-#include "zsolve/ParallelGraver.hpp"
+#include "zsolve/ExtendedPottier.hpp"
 
 namespace _4ti2_zsolve_ {
 
@@ -141,7 +141,7 @@ GraverAPI<T>::compute()
         }
 
         system->cancel_down();
-        algorithm = new ParallelGraver <T>;
+        algorithm = new ExtendedPottier <T>;
 	algorithm->init(system, controller);
         delete system;
     }
@@ -184,7 +184,7 @@ GraverAPI<T>::compute()
         }
 
         lattice->reduce_gaussian();
-        algorithm = new ParallelGraver <T>;
+        algorithm = new ExtendedPottier <T>;
 	algorithm->init(lattice, controller);
         delete lattice;
     }
