@@ -23,8 +23,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef _4ti2_groebner__ParallelGraver_
 #define _4ti2_groebner__ParallelGraver__
 
+#include "4ti2/4ti2.h"
+#include "4ti2/4ti2xx.h"
+
 #include "groebner/Feasible.h"
 #include "groebner/Permutation.h"
+
+#include "zsolve/GraverAPI.hpp"
 
 namespace _4ti2_
 {

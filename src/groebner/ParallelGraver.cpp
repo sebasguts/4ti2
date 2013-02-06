@@ -78,9 +78,55 @@ ParallelGraver::compute(
     // shuffling in the end.
     Permutation P = permute_full_rank_to_left (basis);
 
-    print_vector (P);
     // Project and compute a Graver basis with zsolve.
+    VectorArray *projected = new VectorArray (basis.get_number(), m_rank);
+    VectorArray::project(basis, 0, m_rank-1, *projected);
+
+    *out << "Projected Lattice\n";
+    *out << *projected << std::endl;
+
+    // Call old zsolve Graver code to determine minimal elements.  We
+    // need a lattice basis in zsolve Format: 
     
+////     // @TODO Make precision
+////     //customizable
+////     _4ti2_zsolve_::GraverAPI <IntegerType> 
+//// 	*m_graver_API = new _4ti2_zsolve_::GraverAPI <IntegerType>;
+////     // The following is really stupid, but I believe it is a design
+////     // error in the API.  I feel like I'm intended to only use
+////     // _4ti2_matrix* as the return type of create_matrix.  However,
+////     // that interface has no means of doing anything useful with the
+////     // matrix.  In fact, if we look at the code of create_matrix then
+////     // we see that a VectorArrayAPI is created and then upcasted to
+////     // _4ti2_matrix.  For now we just cast it back.
+////     _4ti2_zsolve_::VectorArrayAPI <IntegerType> *projected_g_basis_API = 
+//// 	(_4ti2_zsolve_::VectorArrayAPI <IntegerType>*) m_graver_API->create_matrix(projected->get_number(), projected->get_size(), "lat");
+////     _4ti2_zsolve_::VectorArray <IntegerType>& projected_g_basis = projected_g_basis_API->data;
+////     for (int i = 0; i < projected->get_number(); i++) {
+//// 	// Create a zsolve copy of this vector:
+//// 	IntegerType *v = _4ti2_zsolve_::create_vector<IntegerType> (projected->get_size());
+//// 	for (int j = 0; j < projected->get_size(); j++)
+//// 	    v[j] = (*projected)[i][j];
+//// 	projected_g_basis.append_vector(v);
+////     }
+////     // Now we have the projected lattice basis in a zsolve
+////     // VectorArray, stored in the Graver_API.
+////     m_graver_API->compute();
+//// 
+////     // Result is stored in zhom_data
+////     
+////     // Clean-up
+////     delete projected;
+////     delete m_graver_API;
+
+    _4ti2_state *m_state = new _4ti2_zsolve_::GraverAPI <IntegerType> ();
+    // _4ti2_state_set_options(m_state, argv, argc);
+    _4ti2_matrix *m_matrix = m_state->create_matrix(projected->get_number(), 
+						    projected->get_size(), 
+						    "lat");
+    m_state->compute();
+    _4ti2_matrix *m_result = m_state->get_matrix("zhom");
+    delete m_state;
 
     // Undo the permutation so that the users coordinates are
     // restored.
