@@ -906,14 +906,14 @@ public:
                 if (vector[j] != 0 && !m_lattice->get_variable (j).free ())
                     is_free = false;
 
-            bool has_symmetric = true;
-            for (size_t j = 0; j < m_variables; j++)
-                if (!m_lattice->get_variable (j).check_bounds (-vector[j]))
-                    has_symmetric = false;
-
-            //std::cout << is_free << std::endl;
-            
-            assert (!is_free || has_symmetric);
+            // bool has_symmetric = true;
+            // for (size_t j = 0; j < m_variables; j++)
+            //     if (!m_lattice->get_variable (j).check_bounds (-vector[j]))
+            //         has_symmetric = false;
+	    // 
+            // //std::cout << is_free << std::endl;
+            // 
+            // assert (!is_free || has_symmetric);
 
             //int lex_cmp = lex_compare_vector_with_negative (vector, result_variables);
 
