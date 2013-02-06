@@ -54,7 +54,7 @@ AM_CXXFLAGS += -D__STDC_LIMIT_MACROS
 # The optimisation flags.
 AM_CXXFLAGS += -DNDEBUG
 # Uncomment the next line for debugging.
-#AM_CXXFLAGS += -g
+AM_CXXFLAGS += -ggdb
 # Uncomment the next line for profiling.
 #AM_CXXFLAGS += -pg
 
@@ -278,7 +278,7 @@ WRAPPERSCRIPTS =				\
 nodist_bin_SCRIPTS = $(WRAPPERSCRIPTS)
 DISTCLEANFILES = $(WRAPPERSCRIPTS)
 
-AM_LDFLAGS = -L../4ti2 -R$(libdir) -l4ti2common
+AM_LDFLAGS = -L../4ti2 -L../zsolve -R$(libdir) -l4ti2common
 
 # 16 bit precision flags.
 # 4ti2int16_LDADD = lib4ti2int16.la
