@@ -85,72 +85,45 @@ ParallelGraver::compute(
     *out << "Projected Lattice\n";
     *out << *projected << std::endl;
 
-    // Call old zsolve Graver code to determine minimal elements.  We
-    // need a lattice basis in zsolve Format: 
-    
-////     // @TODO Make precision
-////     //customizable
-////     _4ti2_zsolve_::GraverAPI <IntegerType> 
-//// 	*m_graver_API = new _4ti2_zsolve_::GraverAPI <IntegerType>;
-////     // The following is really stupid, but I believe it is a design
-////     // error in the API.  I feel like I'm intended to only use
-////     // _4ti2_matrix* as the return type of create_matrix.  However,
-////     // that interface has no means of doing anything useful with the
-////     // matrix.  In fact, if we look at the code of create_matrix then
-////     // we see that a VectorArrayAPI is created and then upcasted to
-////     // _4ti2_matrix.  For now we just cast it back.
-////     _4ti2_zsolve_::VectorArrayAPI <IntegerType> *projected_g_basis_API = 
-//// 	(_4ti2_zsolve_::VectorArrayAPI <IntegerType>*) m_graver_API->create_matrix(projected->get_number(), projected->get_size(), "lat");
-////     _4ti2_zsolve_::VectorArray <IntegerType>& projected_g_basis = projected_g_basis_API->data;
-////     for (int i = 0; i < projected->get_number(); i++) {
-//// 	// Create a zsolve copy of this vector:
-//// 	IntegerType *v = _4ti2_zsolve_::create_vector<IntegerType> (projected->get_size());
-//// 	for (int j = 0; j < projected->get_size(); j++)
-//// 	    v[j] = (*projected)[i][j];
-//// 	projected_g_basis.append_vector(v);
-////     }
-////     // Now we have the projected lattice basis in a zsolve
-////     // VectorArray, stored in the Graver_API.
-////     m_graver_API->compute();
-//// 
-////     // Result is stored in zhom_data
-////     
-////     // Clean-up
-////     delete projected;
-////     delete m_graver_API;
-
+    // Call old zsolve Graver code to determine minimal elements.  
     _4ti2_state *m_state = new _4ti2_zsolve_::GraverAPI <IntegerType> ();
     // _4ti2_state_set_options(m_state, argv, argc);
     _4ti2_matrix *m_matrix = m_state->create_matrix(projected->get_number(),
 						    projected->get_size(),
 						    "lat");
     // Fill matrix using the GMP API
-    /// @TODO This will break if gmp is not available?
     for (int i = 0; i < projected->get_number(); i++) {
-  	for (int j = 0; j < projected->get_size(); j++)
+  	for (int j = 0; j < projected->get_size(); j++) {
+#ifdef _4ti2_GMP_
   	    m_matrix->set_entry_mpz_class (i,j, (*projected)[i][j]);
-    }
-    *out << "Matrix: \n";
-    for (int i = 0; i < m_matrix->get_num_rows(); i++) {
-	for (int j = 0; j < m_matrix->get_num_cols(); j++) {
-	    int64_t temp_val = 0; 
-	    m_matrix->get_entry_int64_t(i,j, temp_val);
-	    *out << temp_val;
+#elif defined(_4ti2_INT64_)
+	    m_matrix->set_entry_int64_t (i,j, (*projected)[i][j]);
+#elif defined(_4ti2_INT32_)
+	    m_matrix->set_entry_int32_t (i,j, (*projected)[i][j]);
+#endif
 	}
-	*out << std::endl;
     }
     m_state->compute();
     _4ti2_matrix *m_result = m_state->get_matrix("zhom");
 
-    for (int i = 0; i < m_result->get_num_rows(); i++) {
-	for (int j = 0; j < m_result->get_num_cols(); j++) {
-	    int64_t temp_val = 0; 
-	    m_result->get_entry_int64_t(i,j, temp_val);
-	    *out << temp_val;
+    // Clear projected and insert vectors from the result (which is a
+    // Graver basis of the projected lattice)
+    projected->clear();
+    projected->renumber(m_result->get_num_rows());
+    for (int i = 0; i < m_result->get_num_rows(); i++)
+	for (int j = 0; j < m_result->get_num_cols(); j++){
+#ifdef _4ti2_GMP
+	    m_result->get_entry_mpz_class (i,j, (*projected)[i][j]);
+#elif defined(_4ti2_INT64_)
+	    m_result->get_entry_int64_t (i,j, (*projected)[i][j]);
+#elif defined(_4ti2_INT32_)
+	    m_result->get_entry_int32_t (i,j, (*projected)[i][j]);
+#endif
 	}
-	*out << std::endl;
-    }
-    delete m_state;
+    delete m_state; // Clean up _4ti2_state
+   
+    *out << *projected;
+    
 
     // Undo the permutation so that the users coordinates are
     // restored.
