@@ -143,7 +143,7 @@ public:
 
         m_data.push_back (vector);
 
-        return m_data.size();
+        return m_data.size()-1;
     }
 
     void remove_unsorted (size_t index)

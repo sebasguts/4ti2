@@ -50,3 +50,9 @@ TEST_F(VectorArrayTest, bracket) {
     t2->append_vector(&v);
     EXPECT_EQ( (*(*t2)[5]) [3] , 4);
 }
+
+TEST_F(VectorArrayTest, append_returns_last_valid_index) {
+    T* v = new T({1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+    EXPECT_EQ(5, t2->append_vector(v));
+    EXPECT_EQ(6, t2->num_vectors());
+}
