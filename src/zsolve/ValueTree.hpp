@@ -101,6 +101,7 @@ public:
     void insert_vector (T* vector, size_t length, size_t vector_index, bool split_recursive);
     void insert_vector (size_t vector_index, bool split_recursive);
     void split (int current_variable, int start = -1);
+    void split (int start = -1);
     void dump ();
 };
 
@@ -152,6 +153,18 @@ ValueTree<T>::insert_vector (T* vector, size_t length, size_t vector_index, bool
 	    zero->insert_vector (vector, length, vector_index, split_recursive);
 	}
     }
+}
+
+template <typename T>
+void
+ValueTree<T>::split (int current_variable, int start) {
+    // not implemented
+}
+
+template <typename T>
+void
+ValueTree<T>::split (int start) {
+    // not implemented
 }
 
 // /**
