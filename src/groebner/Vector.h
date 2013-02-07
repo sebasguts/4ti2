@@ -57,6 +57,8 @@ public:
 
     void normalise();
 
+    IntegerType norm() const;
+
     // TODO: sort out which operations are needed.
     static void add(const Vector&,
                     const Vector&,

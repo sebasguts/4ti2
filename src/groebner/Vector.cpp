@@ -87,3 +87,15 @@ Vector::normalise()
     }
     if (gcd != 1) { div(gcd); }
 }
+
+IntegerType
+Vector::norm() const {
+    Index i = 0;
+    while(i < size && vector[i] == 0) { i++; }
+    if (i == size) return 0;
+    IntegerType norm = vector[i] < 0 ? -vector[i] : vector[i];
+    i++;
+    for (;i<size; i++)
+	norm += vector[i] < 0 ? -vector[i] : vector[i];
+    return norm;
+}
