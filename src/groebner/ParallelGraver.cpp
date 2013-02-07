@@ -121,11 +121,35 @@ ParallelGraver::compute(
 
     _4ti2_state *m_state = new _4ti2_zsolve_::GraverAPI <IntegerType> ();
     // _4ti2_state_set_options(m_state, argv, argc);
-    _4ti2_matrix *m_matrix = m_state->create_matrix(projected->get_number(), 
-						    projected->get_size(), 
+    _4ti2_matrix *m_matrix = m_state->create_matrix(projected->get_number(),
+						    projected->get_size(),
 						    "lat");
+    // Fill matrix using the GMP API
+    /// @TODO This will break if gmp is not available?
+    for (int i = 0; i < projected->get_number(); i++) {
+  	for (int j = 0; j < projected->get_size(); j++)
+  	    m_matrix->set_entry_mpz_class (i,j, (*projected)[i][j]);
+    }
+    *out << "Matrix: \n";
+    for (int i = 0; i < m_matrix->get_num_rows(); i++) {
+	for (int j = 0; j < m_matrix->get_num_cols(); j++) {
+	    int64_t temp_val = 0; 
+	    m_matrix->get_entry_int64_t(i,j, temp_val);
+	    *out << temp_val;
+	}
+	*out << std::endl;
+    }
     m_state->compute();
     _4ti2_matrix *m_result = m_state->get_matrix("zhom");
+
+    for (int i = 0; i < m_result->get_num_rows(); i++) {
+	for (int j = 0; j < m_result->get_num_cols(); j++) {
+	    int64_t temp_val = 0; 
+	    m_result->get_entry_int64_t(i,j, temp_val);
+	    *out << temp_val;
+	}
+	*out << std::endl;
+    }
     delete m_state;
 
     // Undo the permutation so that the users coordinates are
