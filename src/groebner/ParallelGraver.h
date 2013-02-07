@@ -28,6 +28,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include "groebner/Feasible.h"
 #include "groebner/Permutation.h"
+#include "groebner/VectorArray.h"
+#include "groebner/Vector.h"
 
 #include "zsolve/GraverAPI.hpp"
 
@@ -47,8 +49,13 @@ public:
 	VectorArray& basis);
 
 protected:
-    Permutation permute_full_rank_to_left (VectorArray& va);
-
+    static Permutation permute_full_rank_to_left (VectorArray& va);
+    static Vector* lift_with_basis( const Vector& v,
+				    const VectorArray& basis,
+				    const VectorArray& lifted_basis);
+    static VectorArray* lift_with_basis( const VectorArray& va,
+					 const VectorArray& basis,
+					 const VectorArray& lifted_basis);
 };
 
 } // namespace _4ti2_

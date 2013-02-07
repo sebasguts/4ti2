@@ -28,6 +28,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/VectorArray.h"
 #include "groebner/VectorArrayStream.h"
 
+#include "zsolve/ZSolveAPI.hpp"
+
 #include <iostream>
 #include <cstdlib>
 
@@ -108,27 +110,106 @@ ParallelGraver::compute(
 
     // Clear projected and insert vectors from the result (which is a
     // Graver basis of the projected lattice)
-    projected->clear();
-    projected->renumber(m_result->get_num_rows());
+
+    VectorArray *projected_g_basis = new VectorArray(m_result->get_num_rows(), m_rank);
+    projected_g_basis->renumber(m_result->get_num_rows());
     for (int i = 0; i < m_result->get_num_rows(); i++)
 	for (int j = 0; j < m_result->get_num_cols(); j++){
 #ifdef _4ti2_GMP
-	    m_result->get_entry_mpz_class (i,j, (*projected)[i][j]);
+	    m_result->get_entry_mpz_class (i,j, (*projected_g_basis)[i][j]);
 #elif defined(_4ti2_INT64_)
-	    m_result->get_entry_int64_t (i,j, (*projected)[i][j]);
+	    m_result->get_entry_int64_t (i,j, (*projected_g_basis)[i][j]);
 #elif defined(_4ti2_INT32_)
-	    m_result->get_entry_int32_t (i,j, (*projected)[i][j]);
+	    m_result->get_entry_int32_t (i,j, (*projected_g_basis)[i][j]);
 #endif
 	}
     delete m_state; // Clean up _4ti2_state
-   
-    *out << *projected;
     
+    *out << "Graver basis of the projected lattice: \n";
+    *out << *projected_g_basis;
+    *out << "\n";
 
+    // need to transpose projected since graver moves are a combination of rows!
+    VectorArray *projected_transposed = new VectorArray (projected->get_size(), projected->get_size());
+    VectorArray::transpose (*projected, *projected_transposed);
+    VectorArray *lifted_graver = lift_with_basis((*projected_g_basis), *projected_transposed, basis);
+    delete projected_transposed;
+    
+    *out << "Graver basis property on rank many components:\n";
+    *out << *lifted_graver << std::endl;
+    *out << "\n";
+    
     // Undo the permutation so that the users coordinates are
     // restored.
     basis.permute(P);
 }
+
+/** 
+ * \brief Lift a Vector according to given lift on bases.
+ * 
+ * @param v Vector to be lifted
+ * @param basis VectorArray consisting of the projections of lifted_basis
+ * @param lifted_basis VectorArray of long basis vectors, aligned with basis
+ * 
+ * @return A new Vector that is the lift
+ */
+Vector* 
+ParallelGraver::lift_with_basis( 
+    const Vector& v,
+    const VectorArray& basis,
+    const VectorArray& lifted_basis)
+{
+    // use zsolve to solve (basis * x = v) (qsolve can only handle homogeneous systems atm)
+    _4ti2_zsolve_::ZSolveAPI<IntegerType> *zsolve_api = new _4ti2_zsolve_::ZSolveAPI<IntegerType>;
+    // How to pass options?
+//    char *opt = "zsolve --quiet";
+//    zsolve_api->set_options(2, &opt);
+    std::stringstream connect_basis;
+    std::stringstream connect_rhs;
+    connect_basis << basis.get_number() << " " << basis.get_size() << " ";
+    connect_basis << basis;
+    connect_rhs << "1 " << v.get_size() << " ";
+    connect_rhs << v;
+    zsolve_api->create_matrix(connect_basis, "mat");
+    zsolve_api->create_matrix(connect_rhs, "rhs");
+    zsolve_api->compute();
+    _4ti2_matrix *result = zsolve_api->get_matrix("zinhom"); // This is the desired coefficient vector
+    Vector *coefficient_vector = new Vector (lifted_basis.get_number());
+    for (int i =0; i < lifted_basis.get_number(); i++) {
+#ifdef _4ti2_GMP
+	    result->get_entry_mpz_class (0,i, (*coefficient_vector)[i]);
+#elif defined(_4ti2_INT64_)
+	    result->get_entry_int64_t (0,i, (*coefficient_vector)[i]);
+#elif defined(_4ti2_INT32_)
+	    result->get_entry_int32_t (0,i, (*coefficient_vector)[i]);
+#elif 1
+	    // This branch is only to remove -Wunused-variable warning
+	    // that appears without it.  It should never be used
+	    i = result->get_num_cols();
+#endif
+    }
+    delete zsolve_api;
+    
+    Vector *result_vector = new Vector (lifted_basis.get_size(), 0);
+    for (int i = 0; i < lifted_basis.get_number(); i++)
+	result_vector->add( (lifted_basis[i]) * ((*coefficient_vector)[i]));
+    delete coefficient_vector;
+    return result_vector;
+}
+
+VectorArray*
+ParallelGraver::lift_with_basis( 
+    const VectorArray& va,
+    const VectorArray& basis,
+    const VectorArray& lifted_basis)
+{
+    VectorArray *result = new VectorArray (0, lifted_basis.get_size());
+    for (int i = 0; i < va.get_number(); i++)
+	// @TODO: std::move!
+	result->insert( (*lift_with_basis (va[i], basis, lifted_basis)) );
+    return result;
+}
+
 
 /** 
  * Permute a full rank matrix to the left
