@@ -44,6 +44,15 @@ public:
     virtual void write(std::ostream& out) const; 
     virtual void read(std::istream& in);
 
+    /// @TODO Why do these functions have different names and not the
+    /// same name and different signatures?  For example, if I write a
+    /// new client within the 4ti2 system, then I can't use this API.
+    /// The problem: the build system compiles three different
+    /// binaries for the three different integer types and I'll have
+    /// to use macro tricks to pick out the correct version of this
+    /// function for each of the three different integer types.  If
+    /// the function name was constant, then the compiler could figure
+    /// it out for me.
 #ifdef _4ti2_HAVE_INT32_T_INT64_T
     virtual void set_entry_int32_t(int r, int c, const int32_t& value); 
     virtual void get_entry_int32_t(int r, int c, int32_t& value) const;
