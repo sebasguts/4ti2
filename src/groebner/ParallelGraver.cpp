@@ -32,6 +32,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "zsolve/ZSolveAPI.hpp"
 #include "zsolve/Norms.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <future>
 #include <cstdlib>
@@ -181,11 +182,12 @@ ParallelGraver::compute(
 			 current->get_tree()->find(it->second) != current->get_tree()->end()) {
 			std::future < VectorArray* > fut = std::async(
 			    std::launch::async, // Compiler can decide launch order
-			    [current, varindex, it] () {
-				return graverJob (*(current->get_tree()->at(it->first)),
-						  *(current->get_tree()->at(it->second)),
-						  *(current->get_vectors()),
-						  varindex);}
+			    &ParallelGraver::graverJob,
+			    this, // Since GraverJob is a non-static member, it needs 'this' as an argument
+			    *(current->get_tree()->at(it->first)),
+			    *(current->get_tree()->at(it->second)),
+			    *(current->get_vectors()),
+			    varindex
 			    );
 			// For debug purposes, wait for finish?
 			// fut.wait();
@@ -369,4 +371,72 @@ ParallelGraver::permute_full_rank_to_left (VectorArray& va){
 	pinv.push_back(index_of_i);
     }
     return pinv;
+}
+
+
+bool
+is_reducible (const Vector& v) {
+    return true;
+}
+
+/**
+ * \brief Graver job computation
+ * 
+ * Input:
+ *   * lattice basis L for \Lattice\subseteq\Z^n (typically, a coordinate projection of ker(A))
+ *   * sets of vectors G_r,G_s\in\Lattice with 1-norms r,s on first d components
+ *   * the auxiliary information for each vector should be given
+ *   from master to slave!
+ *   * d
+ *   * n = number of variables/components (Typically, we have d=n-1.)
+ * 
+ * Output:
+ *   * all sums v+w \in G_r+G_s that are minimal elements in \Lattice\setminus\{0\}
+ * 
+ * Algorithm:
+ *   * irr={}
+ *   * for all pairs (v,w) \in G_r+G_s {
+ *     * if v+w is minimal in \Lattice\setminus\{0\} {
+ *       * add auxiliary data to v+w like support, norm, ...
+ *       * set irr=irr\cup{v+w}
+ *     }
+ *   }
+ *   * return irr (including auxiliary data for each vector)
+ * 
+ * 
+ * Remarks:
+ * 
+ * * Clearly, if r=s, only half the number of pairs have to be
+ * checked.
+ * * If v and w have the same sign pattern in the last n-d
+ * components, the quick test applies and v+w is reducibly by both
+ * v and w and can thus be discarded immediately.
+ * * Consequently, if d=n-1, it is worth pre-sorting G_r and G_s
+ * according to the last component being >0, =0, <0.
+ * * For the minimality test, we could use the lattice basis and
+ * look for a nonzero vector u<>v+w in \Lattice with the same
+ * sign-pattern as v+w and with u<=v+w in this orthant.
+ * * We may also give the slave G_1, G_2, ...up to some norm for a
+ * quick check.
+ * 
+ * 
+ */
+VectorArray*
+ParallelGraver::graverJob (const VectorArray& Gr,
+			   const VectorArray& Gs,
+			   const VectorArray& current_gens,
+			   const Index& maxvar) 
+{
+    VectorArray *result = new VectorArray (0,current_gens.get_size());
+    Vector *v;
+    for (int i = 0; i < Gr.get_number(); i++ ) {
+	for (int j = 0; j < Gs.get_number(); j++ ) {
+	    v = new Vector (Gr[i] + Gs[j]);
+	    if (!is_reducible (*v))
+		result->insert (std::move(*v));
+	    else 
+		delete v;
+	}
+    }
+    return result;
 }

@@ -57,6 +57,11 @@ public:
 					 const VectorArray& lifted_basis);
 
 protected:
+    VectorArray* graverJob (const VectorArray& Gr,
+			    const VectorArray& Gs,
+			    const VectorArray& current_gens,
+			    const Index& maxvar);
+
 };
 
 } // namespace _4ti2_
