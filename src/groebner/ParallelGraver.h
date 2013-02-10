@@ -48,7 +48,6 @@ public:
 	Feasible& feasible,
 	VectorArray& basis);
 
-protected:
     static Permutation permute_full_rank_to_left (VectorArray& va);
     static Vector* lift_with_basis( const Vector& v,
 				    const VectorArray& basis,
@@ -56,6 +55,8 @@ protected:
     static VectorArray* lift_with_basis( const VectorArray& va,
 					 const VectorArray& basis,
 					 const VectorArray& lifted_basis);
+
+protected:
 };
 
 } // namespace _4ti2_

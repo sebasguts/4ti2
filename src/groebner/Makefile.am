@@ -120,6 +120,7 @@ lib4ti2sources =				\
 	Timer.cpp				\
 	Truncated.cpp				\
 	VectorArray.cpp				\
+	AugmentedVectorArray.cpp		\
 	VectorArrayAPI.cpp			\
 	VectorArrayStream.cpp			\
 	Vector.cpp				\
@@ -215,6 +216,7 @@ groebnerinclude_HEADERS =			\
 	Timer.h					\
 	Truncate.h				\
 	VectorArray.h				\
+	AugmentedVectorArray.h			\
 	VectorArrayAPI.h			\
 	VectorArrayStream.h			\
 	Vector.h				\

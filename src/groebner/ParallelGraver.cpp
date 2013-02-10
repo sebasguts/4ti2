@@ -27,10 +27,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/LatticeBasis.h"
 #include "groebner/VectorArray.h"
 #include "groebner/VectorArrayStream.h"
+#include "groebner/AugmentedVectorArray.h"
 
 #include "zsolve/ZSolveAPI.hpp"
+#include "zsolve/Norms.hpp"
 
 #include <iostream>
+#include <future>
 #include <cstdlib>
 
 using namespace _4ti2_;
@@ -63,7 +66,7 @@ ParallelGraver::compute(
                 VectorArray& basis)
 {
     // Some useful quantities
-//    int num_variables = feasible.get_dimension();
+    int num_variables = feasible.get_dimension();
 
     *out << "Computing Graver basis (parallel) ...\n";
 
@@ -129,20 +132,132 @@ ParallelGraver::compute(
     *out << *projected_g_basis;
     *out << "\n";
 
+    // TODO: Move this lifting code inside the loop.  In the end we
+    // only want to lift one step at a time.
+
     // need to transpose projected since graver moves are a combination of rows!
     VectorArray *projected_transposed = new VectorArray (projected->get_size(), projected->get_size());
     VectorArray::transpose (*projected, *projected_transposed);
     VectorArray *lifted_graver = lift_with_basis((*projected_g_basis), *projected_transposed, basis);
     delete projected_transposed;
     
+    // Add negatives
+    int stop = lifted_graver->get_number();
+    for (int i = 0; i < stop; i++)
+	lifted_graver->insert( - (*lifted_graver)[i] );
+
     *out << "Graver basis property on rank many components:\n";
     *out << *lifted_graver << std::endl;
     *out << "\n";
-    
+
+    // The big lifting loop. varindex is the actual index of the next
+    // variable.  For instance if we have a kx3 matrix of already
+    // lifted stuff, then varindex would start out as "3" and all
+    // norms to be computed in the following are over 0,1,2.
+    for (int varindex = lifted_graver->get_size()-1; varindex < num_variables; varindex++ ) {
+	*out << "Now lifting variable number " << varindex+1 << "\n";
+
+	// Create auxilliary data
+	auto current = new AugmentedVectorArray (std::move(*lifted_graver));
+	current->createNormBST (varindex);
+
+	IntegerType max_norm = current->maximum_norm ();
+	*out << "Maximum norm on first components:" << max_norm << "\n";
+	// Debug: ask various things about the normBST, spit it out, etc.
+
+	typedef _4ti2_zsolve_::NormPair< IntegerType > NP;
+	typedef std::vector< NP > NPvector;
+	NPvector jobs;
+	if (current->get_tree()->cbegin()->first == 1)
+	    jobs.push_back( NP(1,1) );
+	IntegerType completed_norm = 1;
+	while (completed_norm < 2*max_norm) {
+	    std::vector < std::future < VectorArray* > > m_futures;
+	    for (auto it = jobs.begin(); it != jobs.end(); it++) {
+		if ((*it).sum <= completed_norm+1) {
+		    // do this job ...
+		    // Check if there are vectors with this norm:
+		    if ( current->get_tree()->find(it->first) != current->get_tree()->end() &&
+			 current->get_tree()->find(it->second) != current->get_tree()->end()) {
+			std::future < VectorArray* > fut = std::async(
+			    std::launch::async, // Compiler can decide launch order
+			    [current, varindex, it] () {
+				return graverJob (*(current->get_tree()->at(it->first)),
+						  *(current->get_tree()->at(it->second)),
+						  *(current->get_vectors()),
+						  varindex);}
+			    );
+			// For debug purposes, wait for finish?
+			// fut.wait();
+			m_futures.push_back (std::move(fut));
+		    }
+		}
+	    } // for over jobs
+	    // Synchronize:
+	    *out << "Waiting for sync ... ";
+	    for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+		it->wait();
+	    *out << "Done.\n";
+	    // Retrieve results
+	    for (auto it = m_futures.begin(); it != m_futures.end(); ++it) {
+		VectorArray *res = it->get();
+		if (res->get_number() == 0) // nothing new
+		    continue;
+		IntegerType norm = (*res)[0].norm(varindex);  // TODO: Norm need not be computed, is clear from pair (r,s)
+		*out << "Current norm: " << norm << "\n";
+		// check if maximum increased
+		if (max_norm < norm) {
+		    *out << "New norm bound : " << norm << "\n";
+		    max_norm = norm;
+		}
+		// Store new Graver elements
+		current->get_vectors()->insert (*res);
+		// Update normBST
+		if (current->get_tree()->find(norm) == current->get_tree()->end()) {
+		    // not found
+		    current->get_tree()->insert( std::pair <IntegerType, VectorArray* >
+						 (norm, res));
+		    // Ownership of the VectorArray transferred to current!
+		}
+		else {
+		    // found norm, append vectors
+		    /// @TODO Move semantics
+		    for (Index vc = 0; vc < res->get_number(); vc++)
+			current->get_tree()->at(norm)->insert( (*res)[vc] );
+		    delete res;
+		}
+	    }
+	    // Clean up futures:
+	    m_futures.clear();
+	    
+	    // Now all jobs with norm sum <= completed_norm+1 are done.
+	    // Schedule new jobs:
+	    completed_norm++;
+	    // Add new jobs for each norm pair (i, completed_norm), i=
+	    // 1..completed_norm such that there are moves in the
+	    // respective degrees.
+	    if (current->get_tree()->find(completed_norm) != current->get_tree()->end())
+		for (IntegerType i = 1; i <= completed_norm; i++)
+		    if (current->get_tree()->find(i) != current->get_tree()->end())
+			jobs.push_back ( NP (i, completed_norm));
+	    // Keep jobs sorted according to total norm
+	    std::sort(jobs.begin(), jobs.end());
+	}; // while (completed_norm < 2*max_norm)
+	// Before stepping to the next lift, rebuild the NormBST
+	std::cout << "Done with variable: " << varindex << " Updating norm map." << std::endl;
+	if (varindex < num_variables )
+	    current->createNormBST(varindex+1);
+    } // big for loop over varindex
+
+
+	
+	
+    } // End of the big variable lifting loop
+        
     // Undo the permutation so that the users coordinates are
     // restored.
     basis.permute(P);
-}
+} // compute()
 
 /** 
  * \brief Lift a Vector according to given lift on bases.
