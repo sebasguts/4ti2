@@ -34,7 +34,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include <algorithm>
 #include <iostream>
-#include <future>
+// #include <future>
 #include <cstdlib>
 
 using namespace _4ti2_;
@@ -90,76 +90,35 @@ ParallelGraver::compute(
 
     *out << "Projected Lattice\n";
     *out << *projected << std::endl;
-
-    // Call old zsolve Graver code to determine minimal elements.  
-    _4ti2_state *m_state = new _4ti2_zsolve_::GraverAPI <IntegerType> ();
-    // _4ti2_state_set_options(m_state, argv, argc);
-    _4ti2_matrix *m_matrix = m_state->create_matrix(projected->get_number(),
-						    projected->get_size(),
-						    "lat");
-    // Fill matrix using the GMP API
-    for (int i = 0; i < projected->get_number(); i++) {
-  	for (int j = 0; j < projected->get_size(); j++) {
-#ifdef _4ti2_GMP_
-  	    m_matrix->set_entry_mpz_class (i,j, (*projected)[i][j]);
-#elif defined(_4ti2_INT64_)
-	    m_matrix->set_entry_int64_t (i,j, (*projected)[i][j]);
-#elif defined(_4ti2_INT32_)
-	    m_matrix->set_entry_int32_t (i,j, (*projected)[i][j]);
-#endif
-	}
-    }
-    m_state->compute();
-    _4ti2_matrix *m_result = m_state->get_matrix("zhom");
-
-    // Clear projected and insert vectors from the result (which is a
-    // Graver basis of the projected lattice)
-
-    VectorArray *projected_g_basis = new VectorArray(m_result->get_num_rows(), m_rank);
-    projected_g_basis->renumber(m_result->get_num_rows());
-    for (int i = 0; i < m_result->get_num_rows(); i++)
-	for (int j = 0; j < m_result->get_num_cols(); j++){
-#ifdef _4ti2_GMP
-	    m_result->get_entry_mpz_class (i,j, (*projected_g_basis)[i][j]);
-#elif defined(_4ti2_INT64_)
-	    m_result->get_entry_int64_t (i,j, (*projected_g_basis)[i][j]);
-#elif defined(_4ti2_INT32_)
-	    m_result->get_entry_int32_t (i,j, (*projected_g_basis)[i][j]);
-#endif
-	}
-    delete m_state; // Clean up _4ti2_state
+    
+    MakeGraverBasisWithZSolve (*projected);
     
     *out << "Graver basis of the projected lattice: \n";
-    *out << *projected_g_basis;
-    *out << "\n";
-
-    // TODO: Move this lifting code inside the loop.  In the end we
-    // only want to lift one step at a time.
-
-    // need to transpose projected since graver moves are a combination of rows!
-    VectorArray *projected_transposed = new VectorArray (projected->get_size(), projected->get_size());
-    VectorArray::transpose (*projected, *projected_transposed);
-    VectorArray *lifted_graver = lift_with_basis((*projected_g_basis), *projected_transposed, basis);
-    delete projected_transposed;
-    
-    // Add negatives
-    int stop = lifted_graver->get_number();
-    for (int i = 0; i < stop; i++)
-	lifted_graver->insert( - (*lifted_graver)[i] );
-
-    *out << "Graver basis property on rank many components:\n";
-    *out << *lifted_graver << std::endl;
+    *out << *projected;
     *out << "\n";
 
     // The big lifting loop. varindex is the actual index of the next
     // variable.  For instance if we have a kx3 matrix of already
     // lifted stuff, then varindex would start out as "3" and all
     // norms to be computed in the following are over 0,1,2.
-    for (int varindex = lifted_graver->get_size()-1; varindex < num_variables; varindex++ ) {
+    for (Index varindex = projected->get_size(); varindex < num_variables; varindex++ ) {
 	*out << "Now lifting variable number " << varindex+1 << "\n";
 
+	VectorArray *temp = liftToIndex (*projected, basis, varindex);
+	delete projected;
+	projected = temp;
+    
+	// Add negatives // Todo: Only if not already present
+	int stop = projected->get_number();
+	for (int i = 0; i < stop; i++)
+	    projected->insert( - (*projected)[i] );
+
+	*out << "Graver basis property on rank many components:\n";
+	*out << *projected << std::endl;
+	*out << "\n";
+
 	// Create auxilliary data
-	auto current = new AugmentedVectorArray (std::move(*lifted_graver));
+	auto current = new AugmentedVectorArray (std::move(*projected));
 	current->createNormBST (varindex);
 
 	IntegerType max_norm = current->maximum_norm ();
@@ -173,22 +132,28 @@ ParallelGraver::compute(
 	    jobs.push_back( NP(1,1) );
 	IntegerType completed_norm = 1;
 	while (completed_norm < 2*max_norm) {
-	    std::vector < std::future < VectorArray* > > m_futures;
+	    std::vector < VectorArray * > m_futures; // The future is now!
+//	    std::vector < std::future < VectorArray* > > m_futures;  // The future is later
 	    for (auto it = jobs.begin(); it != jobs.end(); it++) {
 		if ((*it).sum <= completed_norm+1) {
 		    // do this job ...
 		    // Check if there are vectors with this norm:
 		    if ( current->get_tree()->find(it->first) != current->get_tree()->end() &&
 			 current->get_tree()->find(it->second) != current->get_tree()->end()) {
-			std::future < VectorArray* > fut = std::async(
-			    std::launch::async, // Compiler can decide launch order
-			    &ParallelGraver::graverJob,
-			    this, // Since GraverJob is a non-static member, it needs 'this' as an argument
+			VectorArray *fut = graverJob (
 			    *(current->get_tree()->at(it->first)),
 			    *(current->get_tree()->at(it->second)),
 			    *(current->get_vectors()),
 			    varindex
 			    );
+//			std::future < VectorArray* > fut = std::async(
+//			    std::launch::async, // Compiler can decide launch order
+//			    ParallelGraver::graverJob2,
+//			    *(current->get_tree()->at(it->first)),
+//			    *(current->get_tree()->at(it->second)),
+//			    *(current->get_vectors()),
+//			    varindex
+//			    );
 			// For debug purposes, wait for finish?
 			// fut.wait();
 			m_futures.push_back (std::move(fut));
@@ -196,13 +161,14 @@ ParallelGraver::compute(
 		}
 	    } // for over jobs
 	    // Synchronize:
-	    *out << "Waiting for sync ... ";
-	    for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
-		it->wait();
-	    *out << "Done.\n";
-	    // Retrieve results
+// 	    *out << "Waiting for sync ... ";
+// 	    for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+// 		it->wait();
+// 	    *out << "Done.\n";
+// 	    // Retrieve results
 	    for (auto it = m_futures.begin(); it != m_futures.end(); ++it) {
-		VectorArray *res = it->get();
+//		VectorArray *res = it->get();
+		VectorArray *res = *it;
 		if (res->get_number() == 0) // nothing new
 		    continue;
 		IntegerType norm = (*res)[0].norm(varindex);  // TODO: Norm need not be computed, is clear from pair (r,s)
@@ -249,11 +215,6 @@ ParallelGraver::compute(
 	std::cout << "Done with variable: " << varindex << " Updating norm map." << std::endl;
 	if (varindex < num_variables )
 	    current->createNormBST(varindex+1);
-    } // big for loop over varindex
-
-
-	
-	
     } // End of the big variable lifting loop
         
     // Undo the permutation so that the users coordinates are
@@ -320,11 +281,36 @@ ParallelGraver::lift_with_basis(
     const VectorArray& basis,
     const VectorArray& lifted_basis)
 {
+    // This is a trick.  Since zsolve solves Ax = b, we need to
+    // transpose the basis to get a coefficient vector (remember,
+    // members of the basis are rows originally.)  We don't need to
+    // transpose the lifted basis because lift_with_basis correctly
+    // combines its rows according to the coefficients.
+    VectorArray *basis_transposed = new VectorArray (basis.get_size(), basis.get_size());
+    VectorArray::transpose (basis, *basis_transposed);
+
     VectorArray *result = new VectorArray (0, lifted_basis.get_size());
     for (int i = 0; i < va.get_number(); i++)
 	// @TODO: std::move!
-	result->insert( (*lift_with_basis (va[i], basis, lifted_basis)) );
+	result->insert( (*lift_with_basis (va[i], *basis_transposed, lifted_basis)) );
+    delete basis_transposed;
     return result;
+}
+
+VectorArray*
+ParallelGraver::liftToIndex (
+    const VectorArray& va,
+    const VectorArray& basis, 
+    Index index)
+{
+    // project basis down to desired index
+    VectorArray *proj_basis = new VectorArray (basis.get_number(), index);
+    VectorArray::project(basis, 0, index, *proj_basis);
+
+    VectorArray *temp = lift_with_basis (va, *proj_basis, basis);
+    delete proj_basis;
+    // UGH!
+    return temp;
 }
 
 
@@ -376,7 +362,7 @@ ParallelGraver::permute_full_rank_to_left (VectorArray& va){
 
 bool
 is_reducible (const Vector& v) {
-    return true;
+    return false;
 }
 
 /**
@@ -419,7 +405,6 @@ is_reducible (const Vector& v) {
  * * We may also give the slave G_1, G_2, ...up to some norm for a
  * quick check.
  * 
- * 
  */
 VectorArray*
 ParallelGraver::graverJob (const VectorArray& Gr,
@@ -438,5 +423,56 @@ ParallelGraver::graverJob (const VectorArray& Gr,
 		delete v;
 	}
     }
+    MakeGraverBasisWithZSolve(*result);
     return result;
+}
+
+VectorArray*
+ParallelGraver::graverJob2 (const VectorArray& Gr,
+			    const VectorArray& Gs,
+			    const VectorArray& current_gens,
+			    const Index& maxvar) 
+{
+    return new VectorArray (1, Gr.get_size());
+}
+
+
+void 
+ParallelGraver::MakeGraverBasisWithZSolve (VectorArray& basis){
+    // Call old zsolve Graver code to determine minimal elements.  
+    _4ti2_state *m_state = new _4ti2_zsolve_::GraverAPI <IntegerType> ();
+    // _4ti2_state_set_options(m_state, argv, argc);
+    _4ti2_matrix *m_matrix = m_state->create_matrix(basis.get_number(),
+						    basis.get_size(),
+						    "lat");
+    // Fill matrix using the GMP API
+    for (int i = 0; i < basis.get_number(); i++) {
+  	for (int j = 0; j < basis.get_size(); j++) {
+#ifdef _4ti2_GMP_
+  	    m_matrix->set_entry_mpz_class (i,j, basis[i][j]);
+#elif defined(_4ti2_INT64_)
+	    m_matrix->set_entry_int64_t (i,j, basis[i][j]);
+#elif defined(_4ti2_INT32_)
+	    m_matrix->set_entry_int32_t (i,j, basis[i][j]);
+#endif
+	}
+    }
+    m_state->compute();
+    _4ti2_matrix *m_result = m_state->get_matrix("zhom");
+    /// Potentially do better here if profiling shows that this matters
+    /// Problem: We write information to basis that is already there.
+    /// Unsure if we can savely skip the first rows because the called
+    /// code may have permuted the rows?
+    basis.renumber(m_result->get_num_rows());
+    for (int i = 0; i < m_result->get_num_rows(); i++)
+	for (int j = 0; j < m_result->get_num_cols(); j++){
+#ifdef _4ti2_GMP
+	    m_result->get_entry_mpz_class (i,j, basis[i][j]);
+#elif defined(_4ti2_INT64_)
+	    m_result->get_entry_int64_t (i,j, basis[i][j]);
+#elif defined(_4ti2_INT32_)
+	    m_result->get_entry_int32_t (i,j, basis[i][j]);
+#endif
+	}
+    delete m_state; // Clean up _4ti2_state
 }

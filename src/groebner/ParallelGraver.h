@@ -57,10 +57,21 @@ public:
 					 const VectorArray& lifted_basis);
 
 protected:
-    VectorArray* graverJob (const VectorArray& Gr,
-			    const VectorArray& Gs,
-			    const VectorArray& current_gens,
-			    const Index& maxvar);
+    static VectorArray* graverJob (const VectorArray& Gr,
+				   const VectorArray& Gs,
+				   const VectorArray& current_gens,
+				   const Index& maxvar);
+    static VectorArray* graverJob2 (const VectorArray& Gr,
+				   const VectorArray& Gs,
+				   const VectorArray& current_gens,
+				   const Index& maxvar);
+
+private:
+    static void MakeGraverBasisWithZSolve (VectorArray& basis);
+    static VectorArray*  liftToIndex ( const VectorArray& va,
+				       const VectorArray& basis, 
+				       Index index);
+
 
 };
 
