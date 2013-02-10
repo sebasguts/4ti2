@@ -99,3 +99,16 @@ Vector::norm() const {
 	norm += vector[i] < 0 ? -vector[i] : vector[i];
     return norm;
 }
+
+IntegerType
+Vector::norm(Index stop) const {
+    assert (stop <= size);
+    Index i = 0;
+    while(i < stop && vector[i] == 0) { i++; }
+    if (i == stop ) return 0;
+    IntegerType norm = vector[i] < 0 ? -vector[i] : vector[i];
+    i++;
+    for (; i<stop; i++)
+	norm += vector[i] < 0 ? -vector[i] : vector[i];
+    return norm;
+}

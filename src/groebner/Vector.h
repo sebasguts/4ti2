@@ -58,6 +58,7 @@ public:
     void normalise();
 
     IntegerType norm() const;
+    IntegerType norm(Index stop) const; ///< Compute norm only for indices < stop
 
     // TODO: sort out which operations are needed.
     static void add(const Vector&,
