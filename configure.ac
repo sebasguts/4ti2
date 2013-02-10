@@ -16,6 +16,10 @@ AC_CONFIG_HEADERS([src/config.h src/4ti2/4ti2_config.h])
 
 AC_CONFIG_FILES([src/groebner/script.template])
 
+# Groebner unittests
+AC_CONFIG_FILES([src/groebner/unittests/Makefile])
+
+# 4ti2 functionality tests
 AC_CONFIG_FILES([test/Makefile])
 AC_CONFIG_FILES([test/circuits/Makefile])
 AC_CONFIG_FILES([test/genmodel/Makefile])

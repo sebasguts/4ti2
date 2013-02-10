@@ -18,6 +18,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA. 
 
+SUBDIRS = unittests
+
 bin_PROGRAMS = 
 if HAVE_INT32_INT64
 bin_PROGRAMS += 4ti2int32 4ti2int64
