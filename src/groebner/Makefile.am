@@ -91,6 +91,7 @@ lib4ti2sources =				\
 	GeneratingSet.cpp			\
 	Globals.cpp				\
 	GraverBasis.cpp				\
+	GraverComputeState.cpp			\
 	GroebnerBasis.cpp			\
 	HermiteAlgorithm.cpp			\
 	HybridGenSet.cpp			\
@@ -120,7 +121,6 @@ lib4ti2sources =				\
 	Timer.cpp				\
 	Truncated.cpp				\
 	VectorArray.cpp				\
-	AugmentedVectorArray.cpp		\
 	VectorArrayAPI.cpp			\
 	VectorArrayStream.cpp			\
 	Vector.cpp				\
@@ -172,6 +172,7 @@ groebnerinclude_HEADERS =			\
 	Globals.h				\
 	Grading.h				\
 	GraverBasis.h				\
+	GraverComputeState.h			\
 	GroebnerBasis.h				\
 	HermiteAlgorithm.h			\
 	HybridGenSet.h				\
@@ -216,7 +217,6 @@ groebnerinclude_HEADERS =			\
 	Timer.h					\
 	Truncate.h				\
 	VectorArray.h				\
-	AugmentedVectorArray.h			\
 	VectorArrayAPI.h			\
 	VectorArrayStream.h			\
 	Vector.h				\

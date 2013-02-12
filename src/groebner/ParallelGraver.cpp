@@ -27,7 +27,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/LatticeBasis.h"
 #include "groebner/VectorArray.h"
 #include "groebner/VectorArrayStream.h"
-#include "groebner/AugmentedVectorArray.h"
+#include "groebner/GraverComputeState.h"
 
 #include "zsolve/ZSolveAPI.hpp"
 #include "zsolve/Norms.hpp"
@@ -130,7 +130,7 @@ ParallelGraver::compute(
 	*out << "\n";
 
 	// Create auxilliary data
-	auto current = new AugmentedVectorArray (current_graver_basis);
+	auto current = new GraverComputeState (current_graver_basis);
 	current->createNormBST (varindex);
 
 	IntegerType max_norm = current->maximum_norm ();
@@ -140,7 +140,7 @@ ParallelGraver::compute(
 	typedef _4ti2_zsolve_::NormPair< IntegerType > NP;
 	typedef std::vector< NP > NPvector;
 	NPvector jobs;
-	if (current->get_tree()->cbegin()->first == 1)
+	if (current->get_tree().cbegin()->first == 1)
 	    jobs.push_back( NP(1,1) );
 	IntegerType completed_norm = 1;
 	while (completed_norm < 2*max_norm) {
@@ -152,20 +152,20 @@ ParallelGraver::compute(
 		    // do this job ...
 		    std::cout << "Doing job :" << it->first << "," << it->second << "\n";
 		    // Check if there are vectors with this norm:
-		    if ( current->get_tree()->find(it->first) != current->get_tree()->end() &&
-			 current->get_tree()->find(it->second) != current->get_tree()->end()) {
+		    if ( current->get_tree().find(it->first) != current->get_tree().end() &&
+			 current->get_tree().find(it->second) != current->get_tree().end()) {
 			VectorArray *fut = graverJob (
-			    *(current->get_tree()->at(it->first)),
-			    *(current->get_tree()->at(it->second)),
-			    *(current->get_vectors()),
+			    *(current->get_tree().at(it->first)),
+			    *(current->get_tree().at(it->second)),
+			    current->get_vectors(),
 			    varindex
 			    );
 //			std::future < VectorArray* > fut = std::async(
 //			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
 //			    ParallelGraver::graverJob2,
-//			    *(current->get_tree()->at(it->first)),
-//			    *(current->get_tree()->at(it->second)),
-//			    *(current->get_vectors()),
+//			    *(current->get_tree().at(it->first)),
+//			    *(current->get_tree().at(it->second)),
+//			    current->get_vectors(),
 //			    varindex
 //			    );
 			// For debug purposes, wait for finish?
@@ -197,14 +197,14 @@ ParallelGraver::compute(
 		    *out << "New norm bound : " << norm << "\n";
 		    max_norm = norm;
 		}
-		std::cout << "I'm going to add new vectors. So far I got " << current->get_vectors()->get_number() << std::endl;
+		std::cout << "I'm going to add new vectors. So far I got " << current->get_vectors().get_number() << std::endl;
 		// Store new Graver elements
-		current->get_vectors()->insert (*res);
-		std::cout << "and now there are: " << current->get_vectors()->get_number() << std::endl;
+		current->get_vectors().insert (*res);
+		std::cout << "and now there are: " << current->get_vectors().get_number() << std::endl;
 		// Update normBST
-		if (current->get_tree()->find(norm) == current->get_tree()->end()) {
+		if (current->get_tree().find(norm) == current->get_tree().end()) {
 		    // not found
-		    current->get_tree()->insert( std::pair <IntegerType, VectorArray* >
+		    current->get_tree().insert( std::pair <IntegerType, VectorArray* >
 						 (norm, res));
 		    // Ownership of the VectorArray transferred to current!
 		}
@@ -212,7 +212,7 @@ ParallelGraver::compute(
 		    // found norm, append vectors
 		    /// @TODO Move semantics
 		    for (Index vc = 0; vc < res->get_number(); vc++)
-			current->get_tree()->at(norm)->insert( (*res)[vc] );
+			current->get_tree().at(norm)->insert( (*res)[vc] );
 		    delete res;
 		}
 	    }
@@ -229,10 +229,10 @@ ParallelGraver::compute(
 	    for (auto it=jobs.begin(); it != jobs.end(); it++)
 		std::cout <<"("<<it->first<<","<<it->second<<"), ";
 	    std::cout << std::endl;
-	    std::cout << "Current size of Graver basis: " << current->get_vectors()->get_number() << "\n";
-	    if (current->get_tree()->find(completed_norm) != current->get_tree()->end())
+	    std::cout << "Current size of Graver basis: " << current->get_vectors().get_number() << "\n";
+	    if (current->get_tree().find(completed_norm) != current->get_tree().end())
 		for (IntegerType i = 1; i <= completed_norm; i++)
-		    if (current->get_tree()->find(i) != current->get_tree()->end())
+		    if (current->get_tree().find(i) != current->get_tree().end())
 			jobs.push_back ( NP (i, completed_norm));
 	    // Keep jobs sorted according to total norm
 	    std::sort(jobs.begin(), jobs.end());
@@ -262,7 +262,7 @@ ParallelGraver::compute(
 	    }
 	}
 	if (!has_negative)
-	    basis.insert(new Vector ((*current_graver_basis)[i]) );
+	    basis.insert(Vector((*current_graver_basis)[i]));
     }
     std::cout << " done\n";
     basis.sort();
@@ -492,7 +492,7 @@ ParallelGraver::graverJob (const VectorArray& Gr,
 		}
 		else {
 		    // std::cout << "great, not reducible ! \n";
-		    result->insert(new Vector (sum));
+		    result->insert(Vector (sum));
 		}
 		// result->insert (new Vector (Gr[i] + Gs[j]));
 	    }
