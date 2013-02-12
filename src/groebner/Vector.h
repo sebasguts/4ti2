@@ -42,10 +42,12 @@ class Vector
 {
 public:
     Vector();
-    Vector(const Vector&);
+    Vector(const Vector&); ///< copy constructor
+    Vector(Vector&&);  ///< move constructor
     explicit Vector(Size size);
     Vector(Size size, IntegerType value);
     Vector& operator=(const Vector&);
+    Vector& operator=(Vector&&);
     ~Vector();
 
     const Size& get_size() const;
@@ -732,6 +734,17 @@ Vector::operator=(const Vector& v)
     for (Index i = 0; i < size; ++i) { vector[i] = v.vector[i]; }
     return *this;
 }
+
+inline
+Vector&
+Vector::operator=(Vector&& v)
+{
+    assert(size == v.size);
+    vector = v.vector;
+    v.vector = NULL;
+    return *this;
+}
+
 
 } // namespace 4ti2
 

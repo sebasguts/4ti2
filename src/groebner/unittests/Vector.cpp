@@ -33,3 +33,10 @@ TEST_F(VectorTest, Norm) {
     EXPECT_EQ(v4->norm(), v5->norm());
     EXPECT_EQ(v4->norm(1), 17);
 }
+
+TEST(Vector, move) {
+    Vector *v = new Vector(10,3);
+    Vector w = std::move(*v); // no copy called
+    delete v; // <- still no exception;
+    Vector x = Vector (10,4); // Only single construction, no copy
+}

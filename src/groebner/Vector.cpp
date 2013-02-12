@@ -34,8 +34,16 @@ Vector::Vector(const Vector& v)
         : size(v.size)
 {
     vector = new IntegerType[size];
-    *this = v;
+    *this = v;  // Note: Uses assignment operator to do the copy!
 }
+
+Vector::Vector(Vector&& v)  // Move constructor
+        : size(v.size)
+{
+    vector = v.vector;
+    v.vector = NULL;
+}
+
 
 Vector::Vector(Size s)
         : size(s)
