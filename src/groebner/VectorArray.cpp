@@ -60,6 +60,13 @@ VectorArray::VectorArray(const VectorArray& vs)
     }
 }
 
+VectorArray::VectorArray(VectorArray&& vs)
+{
+    number = vs.number;
+    size = vs.size;
+    std::swap(vectors, vs.vectors);
+}
+
 VectorArray&
 VectorArray::operator=(const VectorArray& vs)
 {
@@ -70,6 +77,21 @@ VectorArray::operator=(const VectorArray& vs)
     for (Index i = 0; i < number; i++)
     {
         vectors.push_back(new Vector(vs[i]));
+    }
+    return *this;
+}
+
+VectorArray&
+VectorArray::operator=(VectorArray&& vs)
+{
+    // Maybe we want to change this check into an assert to not slow
+    // things down to much.  Keep in mind that the branching on the if
+    // will lead to pipeline invalidation and (potentially) some other
+    // O3 optimizations not working.
+    if (&vs != this) {
+	std::swap(vectors, vs.vectors);
+	number = vs.number;
+	size = vs.size;
     }
     return *this;
 }
@@ -88,6 +110,15 @@ VectorArray::insert(const Vector& v)
 }
 
 void
+VectorArray::insert(Vector&& v)
+{
+    assert(v.get_size() == size);
+    ++number;
+    vectors.push_back(new Vector(std::move(v)));
+}
+
+
+void
 VectorArray::insert(Vector* v)
 {
     assert(v->get_size() == size);
@@ -104,6 +135,15 @@ VectorArray::insert(const Vector& v, Index i)
 }
 
 void
+VectorArray::insert(Vector&& v, Index i)
+{
+    assert(v.get_size() == size);
+    ++number;
+    vectors.insert(vectors.begin()+i, new Vector(std::move(v)));
+}
+
+
+void
 VectorArray::insert(const VectorArray& vs)
 {
     assert(vs.get_size() == size);
@@ -112,11 +152,28 @@ VectorArray::insert(const VectorArray& vs)
 }
 
 void
+VectorArray::insert(VectorArray&& vs)
+{
+    assert(vs.get_size() == size);
+    vectors.reserve(size + vs.get_number());
+    for (Index i = 0; i < vs.get_number(); ++i) { insert(std::move(vs[i])); }
+}
+
+
+void
 VectorArray::insert(const VectorArray& vs, Index i)
 {
     assert(vs.get_size() == size);
     vectors.reserve(size + vs.get_number());
     for (Index i = 0; i < vs.get_number(); ++i) { insert(vs[i], i); }
+}
+
+void
+VectorArray::insert(VectorArray&& vs, Index i)
+{
+    assert(vs.get_size() == size);
+    vectors.reserve(size + vs.get_number());
+    for (Index i = 0; i < vs.get_number(); ++i) { insert(std::move(vs[i]), i); }
 }
 
 void

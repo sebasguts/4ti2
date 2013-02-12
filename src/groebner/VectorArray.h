@@ -39,7 +39,9 @@ public:
     VectorArray(Size number, Size size);
     VectorArray(Size number, Size size, IntegerType v);
     VectorArray(const VectorArray& vs);
+    VectorArray(VectorArray&& vs);
     VectorArray& operator=(const VectorArray& vs);
+    VectorArray& operator=(VectorArray&& vs);
     ~VectorArray();
 
     void renumber(Size m);
@@ -120,10 +122,13 @@ public:
     bool is_index_zero(Index index) const;
 
     void insert(const Vector& v);
-    void insert(Vector* v);
+    void insert(Vector&& v);
     void insert(const Vector& v, Index i);
+    void insert(Vector&& v, Index i);
     void insert(const VectorArray& vs);
+    void insert(VectorArray&& vs);
     void insert(const VectorArray& vs, Index i);
+    void insert(VectorArray&& vs, Index i);
     void remove(Index i);
     void remove(Index start, Index end);
     void clear();
@@ -143,6 +148,7 @@ public:
     friend bool operator==(const VectorArray&, const VectorArray&);
 
 protected:
+    void insert(Vector* v);
 
     std::vector<Vector*> vectors;
     Size number;
