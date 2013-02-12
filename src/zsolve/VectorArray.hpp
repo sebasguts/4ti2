@@ -257,7 +257,7 @@ public:
 
     void write (std::ostream& out, bool with_dims = true) const
     {
-        if (with_dims) { out << m_variables << '\n'; }
+        if (with_dims) { out << m_data.size() << ' ' << m_variables << '\n'; }
         for (size_t i = 0; i < m_data.size(); i++) {
             print_vector <T> (out, m_data[i], m_variables);
             out << '\n';
