@@ -36,23 +36,34 @@ typedef std::map <IntegerType, VectorArray* > NormBST;
 class GraverComputeState
 {
 public:
-    // GraverComputeState(const VectorArray& vs); ///< copy constructor
+    GraverComputeState(const VectorArray& lb); ///< copy lattice basis
     // GraverComputeState(VectorArray&& vs); ///< move constructor
-    GraverComputeState(VectorArray *vs); ///< self-made move constructor
+    // GraverComputeState(VectorArray *lb); ///< self-made move constructor
     
     ~GraverComputeState();
 
     VectorArray& get_vectors () { return *m_array; }; ///< Current state of computation
     VectorArray& get_latticeBasis () { return *m_latticeBasis; };
+    VectorArray& get_projected_basis (int i) { return *m_projected_lattice_bases[i]; };
     NormBST& get_tree () { return *m_normTree; };
 
+    void liftToIndex ( Index index);
     void createNormBST (Index stop);
     IntegerType maximum_norm () const;
 private:
 
+    Vector lift_with_basis( const Vector& v,
+			    const VectorArray& basis,
+			    const VectorArray& lifted_basis);
+    VectorArray lift_with_basis( const VectorArray& va,
+				 const VectorArray& basis,
+				 const VectorArray& lifted_basis);
+
 private:
     VectorArray *m_latticeBasis;
     VectorArray *m_array;
+    std::vector < VectorArray* > m_projected_lattice_bases;
+
     NormBST *m_normTree;
     Index m_stopindex;
 };

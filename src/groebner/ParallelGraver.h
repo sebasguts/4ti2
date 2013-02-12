@@ -31,8 +31,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/VectorArray.h"
 #include "groebner/Vector.h"
 
-#include "zsolve/GraverAPI.hpp"
-
 namespace _4ti2_
 {
 
@@ -49,12 +47,6 @@ public:
 	VectorArray& basis);
 
     static Permutation permute_full_rank_to_left (VectorArray& va);
-    static Vector* lift_with_basis( const Vector& v,
-				    const VectorArray& basis,
-				    const VectorArray& lifted_basis);
-    static VectorArray* lift_with_basis( const VectorArray& va,
-					 const VectorArray& basis,
-					 const VectorArray& lifted_basis);
 
     static VectorArray* graverJob (const VectorArray& Gr,
 				   const VectorArray& Gs,
@@ -66,9 +58,6 @@ public:
 				    const Index& maxvar);
 
     static void MakeGraverBasisWithZSolve (VectorArray& basis);
-    static VectorArray*  liftToIndex ( const VectorArray& va,
-				       const VectorArray& basis, 
-				       Index index);
 
     static bool is_below (const Vector& v1, const Vector& v2);
     static bool is_reducible (const Vector& v, const VectorArray& va);

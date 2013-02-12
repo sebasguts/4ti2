@@ -72,8 +72,8 @@ Options::set_defaults ()
 #else
     m_precision = _4ti2_PREC_INT_ARB;
 #endif
-//    m_verbosity = -1;
-    m_verbosity = 0;
+    m_verbosity = -1;
+//    m_verbosity = 0;
     m_loglevel = 0;
     m_backup_frequency = 0;
     m_resume = false;

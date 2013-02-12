@@ -30,6 +30,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/GraverComputeState.h"
 
 #include "zsolve/ZSolveAPI.hpp"
+#include "zsolve/GraverAPI.hpp"
 #include "zsolve/Norms.hpp"
 
 #include <algorithm>
@@ -84,63 +85,49 @@ ParallelGraver::compute(
     // shuffling in the end.
     Permutation P = permute_full_rank_to_left (basis);
 
-    // Precompute all necessary projections of the lattice basis.
-    std::vector < VectorArray* > lattice_bases;
-    for (int i = m_rank; i < num_variables; i++){
-	lattice_bases.push_back (new VectorArray(basis.get_number(), i));
-	VectorArray::project(basis, 0, i, *lattice_bases.back());
-    }
+    GraverComputeState current (basis);  // give lattice basis for initialization
 
-    // Compute a Graver basis of the smallest projectionwith zsolve.
-    VectorArray *current_graver_basis = new VectorArray (*lattice_bases[0]);
-    MakeGraverBasisWithZSolve (*current_graver_basis);
+    // Compute a Graver basis of the smallest projection with zsolve.
+    current.get_vectors() = current.get_projected_basis(0);
+    MakeGraverBasisWithZSolve (current.get_vectors());
     
     *out << "Graver basis of the projected lattice: \n";
-    *out << *current_graver_basis;
+    *out << current.get_vectors();
     *out << "\n";
 
     // Add negatives because the zsolve Graver basis does not include
     // those
-    int stop = current_graver_basis->get_number();
+    int stop = current.get_vectors().get_number();
     for (int i = 0; i < stop; i++)
-	current_graver_basis->insert( -(*current_graver_basis)[i] );
+	current.get_vectors().insert( - current.get_vectors()[i] );
 
-    // TODO: Turn the current graver basis into an augmented vector
-    // array.  They need to have their coefficients determined and
-    // need to be sorted according to their norm.
-
-    // This should produce a norm map of vectors.  For now we don't
-    // implement coefficient storage.  We have 'lift with basis' now
-    // and later we can do it with iml or linbox.
+    // Graver state is initialized with a negative containing Graver
+    // basis now.  Time to start the lifting.
 
     // The big lifting loop. varindex is the actual index of the next
     // variable.  For instance if we have a kx3 matrix of already
     // lifted stuff, then varindex would start out as "3" and all
     // norms to be computed in the following are over 0,1,2.
-    for (Index varindex = current_graver_basis->get_size(); varindex < num_variables; varindex++ ) {
+    for (Index varindex = current.get_vectors().get_size(); varindex < num_variables; varindex++ ) {
 	*out << "Now lifting variable number " << varindex+1 << "\n";
 
-	// Todo: Replace this with real linear algebra
-	VectorArray *temp = liftToIndex (*current_graver_basis, basis, varindex);
-	delete current_graver_basis;
-	current_graver_basis = temp;
+	current.liftToIndex (varindex);
     
 	*out << "Graver basis property on rank many components:\n";
-	*out << *current_graver_basis << std::endl;
+	*out << current.get_vectors() << std::endl;
 	*out << "\n";
 
 	// Create auxilliary data
-	auto current = new GraverComputeState (current_graver_basis);
-	current->createNormBST (varindex);
+	current.createNormBST (varindex);
 
-	IntegerType max_norm = current->maximum_norm ();
+	IntegerType max_norm = current.maximum_norm ();
 	*out << "Maximum norm on first components:" << max_norm << "\n";
 	// Debug: ask various things about the normBST, spit it out, etc.
 
 	typedef _4ti2_zsolve_::NormPair< IntegerType > NP;
 	typedef std::vector< NP > NPvector;
 	NPvector jobs;
-	if (current->get_tree().cbegin()->first == 1)
+	if (current.get_tree().cbegin()->first == 1)
 	    jobs.push_back( NP(1,1) );
 	IntegerType completed_norm = 1;
 	while (completed_norm < 2*max_norm) {
@@ -152,26 +139,26 @@ ParallelGraver::compute(
 		    // do this job ...
 		    std::cout << "Doing job :" << it->first << "," << it->second << "\n";
 		    // Check if there are vectors with this norm:
-		    if ( current->get_tree().find(it->first) != current->get_tree().end() &&
-			 current->get_tree().find(it->second) != current->get_tree().end()) {
+		    if ( current.get_tree().find(it->first) != current.get_tree().end() &&
+			 current.get_tree().find(it->second) != current.get_tree().end()) {
 			VectorArray *fut = graverJob (
-			    *(current->get_tree().at(it->first)),
-			    *(current->get_tree().at(it->second)),
-			    current->get_vectors(),
+			    *(current.get_tree().at(it->first)),
+			    *(current.get_tree().at(it->second)),
+			    current.get_vectors(),
 			    varindex
 			    );
 //			std::future < VectorArray* > fut = std::async(
 //			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
 //			    ParallelGraver::graverJob2,
-//			    *(current->get_tree().at(it->first)),
-//			    *(current->get_tree().at(it->second)),
-//			    current->get_vectors(),
+//			    *(current.get_tree().at(it->first)),
+//			    *(current.get_tree().at(it->second)),
+//			    current.get_vectors(),
 //			    varindex
 //			    );
 			// For debug purposes, wait for finish?
 			// fut.wait();
 			m_futures.push_back (std::move(fut));
-		    } // if (current-> ...
+		    } // if (current. ...
 		}
 		else {
 		    std::cout << "Storing job: " << it->first << "," << it->second << "\n";
@@ -197,14 +184,14 @@ ParallelGraver::compute(
 		    *out << "New norm bound : " << norm << "\n";
 		    max_norm = norm;
 		}
-		std::cout << "I'm going to add new vectors. So far I got " << current->get_vectors().get_number() << std::endl;
+		std::cout << "I'm going to add new vectors. So far I got " << current.get_vectors().get_number() << std::endl;
 		// Store new Graver elements
-		current->get_vectors().insert (*res);
-		std::cout << "and now there are: " << current->get_vectors().get_number() << std::endl;
+		current.get_vectors().insert (*res);
+		std::cout << "and now there are: " << current.get_vectors().get_number() << std::endl;
 		// Update normBST
-		if (current->get_tree().find(norm) == current->get_tree().end()) {
+		if (current.get_tree().find(norm) == current.get_tree().end()) {
 		    // not found
-		    current->get_tree().insert( std::pair <IntegerType, VectorArray* >
+		    current.get_tree().insert( std::pair <IntegerType, VectorArray* >
 						 (norm, res));
 		    // Ownership of the VectorArray transferred to current!
 		}
@@ -212,7 +199,7 @@ ParallelGraver::compute(
 		    // found norm, append vectors
 		    /// @TODO Move semantics
 		    for (Index vc = 0; vc < res->get_number(); vc++)
-			current->get_tree().at(norm)->insert( (*res)[vc] );
+			current.get_tree().at(norm)->insert( (*res)[vc] );
 		    delete res;
 		}
 	    }
@@ -229,10 +216,10 @@ ParallelGraver::compute(
 	    for (auto it=jobs.begin(); it != jobs.end(); it++)
 		std::cout <<"("<<it->first<<","<<it->second<<"), ";
 	    std::cout << std::endl;
-	    std::cout << "Current size of Graver basis: " << current->get_vectors().get_number() << "\n";
-	    if (current->get_tree().find(completed_norm) != current->get_tree().end())
+	    std::cout << "Current size of Graver basis: " << current.get_vectors().get_number() << "\n";
+	    if (current.get_tree().find(completed_norm) != current.get_tree().end())
 		for (IntegerType i = 1; i <= completed_norm; i++)
-		    if (current->get_tree().find(i) != current->get_tree().end())
+		    if (current.get_tree().find(i) != current.get_tree().end())
 			jobs.push_back ( NP (i, completed_norm));
 	    // Keep jobs sorted according to total norm
 	    std::sort(jobs.begin(), jobs.end());
@@ -241,125 +228,33 @@ ParallelGraver::compute(
 	std::cout << "Done with variable: " << varindex << std::endl;
 	if (varindex+1 < num_variables ) {
 	    std::cout << "Updating norm map for next variable." << std::endl;
-	    current->createNormBST(varindex+1);
+	    current.createNormBST(varindex+1);
 	}
 	std::cout << "Ok buddy, I'm done with this variable, here's what I got\n";
-	std::cout << *current_graver_basis;
+	std::cout << current.get_vectors();
 	// TODO: At this point "current_graver_basis" will be destructed because the destructor of the 
     } // End of the big variable lifting loop
     // Undo the permutation so that the users coordinates are
     // restored.
-    current_graver_basis->permute(P);
+    current.get_vectors().permute(P);
     // Todo: Do the reduction in a smarter way:
     std::cout << "Removing negatives...";
     basis.clear();
-    for (int i = 0; i < current_graver_basis->get_number(); i++) {
+    for (int i = 0; i < current.get_vectors().get_number(); i++) {
 	bool has_negative = false;
-	for (int j = i+1; j< current_graver_basis->get_number(); j++) {
-	    if ( ParallelGraver::is_below ( -((*current_graver_basis)[i]), (*current_graver_basis)[j] ) ) {
+	for (int j = i+1; j< current.get_vectors().get_number(); j++) {
+	    if ( ParallelGraver::is_below ( -(current.get_vectors()[i]), current.get_vectors()[j] ) ) {
 		has_negative = true;
 		break;
 	    }
 	}
 	if (!has_negative)
-	    basis.insert(Vector((*current_graver_basis)[i]));
+	    basis.insert(Vector(current.get_vectors()[i]));
     }
     std::cout << " done\n";
     basis.sort();
     
 } // compute()
-
-/** 
- * \brief Lift a Vector according to given lift on bases.
- * 
- * @param v Vector to be lifted
- * @param basis VectorArray consisting of the projections of lifted_basis
- * @param lifted_basis VectorArray of long basis vectors, aligned with basis
- * 
- * @return A new Vector that is the lift
- */
-Vector* 
-ParallelGraver::lift_with_basis( 
-    const Vector& v,
-    const VectorArray& basis,
-    const VectorArray& lifted_basis)
-{
-    // use zsolve to solve (basis * x = v) (qsolve can only handle homogeneous systems atm)
-    _4ti2_zsolve_::ZSolveAPI<IntegerType> *zsolve_api = new _4ti2_zsolve_::ZSolveAPI<IntegerType>;
-    // How to pass options?
-//    char *opt = "zsolve --quiet";
-//    zsolve_api->set_options(2, &opt);
-    std::stringstream connect_basis;
-    std::stringstream connect_rhs;
-    connect_basis << basis.get_number() << " " << basis.get_size() << " ";
-    connect_basis << basis;
-    connect_rhs << "1 " << v.get_size() << " ";
-    connect_rhs << v;
-    zsolve_api->create_matrix(connect_basis, "mat");
-    zsolve_api->create_matrix(connect_rhs, "rhs");
-    zsolve_api->compute();
-    _4ti2_matrix *result = zsolve_api->get_matrix("zinhom"); // This is the desired coefficient vector
-    Vector *coefficient_vector = new Vector (lifted_basis.get_number());
-    for (int i =0; i < lifted_basis.get_number(); i++) {
-#ifdef _4ti2_GMP
-	    result->get_entry_mpz_class (0,i, (*coefficient_vector)[i]);
-#elif defined(_4ti2_INT64_)
-	    result->get_entry_int64_t (0,i, (*coefficient_vector)[i]);
-#elif defined(_4ti2_INT32_)
-	    result->get_entry_int32_t (0,i, (*coefficient_vector)[i]);
-#elif 1
-	    // This branch is only to remove -Wunused-variable warning
-	    // that appears without it.  It should never be used
-	    i = result->get_num_cols();
-#endif
-    }
-    delete zsolve_api;
-    
-    Vector *result_vector = new Vector (lifted_basis.get_size(), 0);
-    for (int i = 0; i < lifted_basis.get_number(); i++)
-	result_vector->add( (lifted_basis[i]) * ((*coefficient_vector)[i]));
-    delete coefficient_vector;
-    return result_vector;
-}
-
-VectorArray*
-ParallelGraver::lift_with_basis( 
-    const VectorArray& va,
-    const VectorArray& basis,
-    const VectorArray& lifted_basis)
-{
-    // This is a trick.  Since zsolve solves Ax = b, we need to
-    // transpose the basis to get a coefficient vector (remember,
-    // members of the basis are rows originally.)  We don't need to
-    // transpose the lifted basis because lift_with_basis correctly
-    // combines its rows according to the coefficients.
-    VectorArray *basis_transposed = new VectorArray (basis.get_size(), basis.get_size());
-    VectorArray::transpose (basis, *basis_transposed);
-
-    VectorArray *result = new VectorArray (0, lifted_basis.get_size());
-    for (int i = 0; i < va.get_number(); i++)
-	// @TODO: std::move!
-	result->insert( (*lift_with_basis (va[i], *basis_transposed, lifted_basis)) );
-    delete basis_transposed;
-    return result;
-}
-
-VectorArray*
-ParallelGraver::liftToIndex (
-    const VectorArray& va,
-    const VectorArray& basis, 
-    Index index)
-{
-    // project basis down to desired index
-    VectorArray *proj_basis = new VectorArray (basis.get_number(), index);
-    VectorArray::project(basis, 0, index, *proj_basis);
-
-    VectorArray *temp = lift_with_basis (va, *proj_basis, basis);
-    delete proj_basis;
-    // UGH!
-    return temp;
-}
-
 
 /** 
  * Permute a full rank matrix to the left
