@@ -120,6 +120,7 @@ public:
     bool is_index_zero(Index index) const;
 
     void insert(const Vector& v);
+    void insert(Vector* v);
     void insert(const Vector& v, Index i);
     void insert(const VectorArray& vs);
     void insert(const VectorArray& vs, Index i);
@@ -142,7 +143,6 @@ public:
     friend bool operator==(const VectorArray&, const VectorArray&);
 
 protected:
-    void insert(Vector* v);
 
     std::vector<Vector*> vectors;
     Size number;

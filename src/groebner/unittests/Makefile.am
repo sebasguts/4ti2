@@ -29,5 +29,3 @@ testMain_SOURCES = \
 
 LDADD = ../lib4ti2int64.la
 LDFLAGS = -pthread -lgtest
-
-

@@ -84,41 +84,53 @@ ParallelGraver::compute(
     // shuffling in the end.
     Permutation P = permute_full_rank_to_left (basis);
 
-    // Project and compute a Graver basis with zsolve.
-    VectorArray *projected = new VectorArray (basis.get_number(), m_rank);
-    VectorArray::project(basis, 0, m_rank-1, *projected);
+    // Precompute all necessary projections of the lattice basis.
+    std::vector < VectorArray* > lattice_bases;
+    for (int i = m_rank; i < num_variables; i++){
+	lattice_bases.push_back (new VectorArray(basis.get_number(), i));
+	VectorArray::project(basis, 0, i, *lattice_bases.back());
+    }
 
-    *out << "Projected Lattice\n";
-    *out << *projected << std::endl;
-    
-    MakeGraverBasisWithZSolve (*projected);
+    // Compute a Graver basis of the smallest projectionwith zsolve.
+    VectorArray *current_graver_basis = new VectorArray (*lattice_bases[0]);
+    MakeGraverBasisWithZSolve (*current_graver_basis);
     
     *out << "Graver basis of the projected lattice: \n";
-    *out << *projected;
+    *out << *current_graver_basis;
     *out << "\n";
+
+    // Add negatives because the zsolve Graver basis does not include
+    // those
+    int stop = current_graver_basis->get_number();
+    for (int i = 0; i < stop; i++)
+	current_graver_basis->insert( - (*current_graver_basis)[i] );
+
+    // TODO: Turn the current graver basis into an augmented vector
+    // array.  They need to have their coefficients determined and
+    // need to be sorted according to their norm.
+
+    // This should produce a norm map of vectors.  For now we don't
+    // implement coefficient storage.  We have 'lift with basis' now
+    // and later we can do it with iml or linbox.
 
     // The big lifting loop. varindex is the actual index of the next
     // variable.  For instance if we have a kx3 matrix of already
     // lifted stuff, then varindex would start out as "3" and all
     // norms to be computed in the following are over 0,1,2.
-    for (Index varindex = projected->get_size(); varindex < num_variables; varindex++ ) {
+    for (Index varindex = current_graver_basis->get_size(); varindex < num_variables; varindex++ ) {
 	*out << "Now lifting variable number " << varindex+1 << "\n";
 
-	VectorArray *temp = liftToIndex (*projected, basis, varindex);
-	delete projected;
-	projected = temp;
+	// Todo: Replace this with real linear algebra
+	VectorArray *temp = liftToIndex (*current_graver_basis, basis, varindex);
+	delete current_graver_basis;
+	current_graver_basis = temp;
     
-	// Add negatives // Todo: Only if not already present
-	int stop = projected->get_number();
-	for (int i = 0; i < stop; i++)
-	    projected->insert( - (*projected)[i] );
-
 	*out << "Graver basis property on rank many components:\n";
-	*out << *projected << std::endl;
+	*out << *current_graver_basis << std::endl;
 	*out << "\n";
 
 	// Create auxilliary data
-	auto current = new AugmentedVectorArray (std::move(*projected));
+	auto current = new AugmentedVectorArray (current_graver_basis);
 	current->createNormBST (varindex);
 
 	IntegerType max_norm = current->maximum_norm ();
@@ -134,9 +146,11 @@ ParallelGraver::compute(
 	while (completed_norm < 2*max_norm) {
 	    std::vector < VectorArray * > m_futures; // The future is now!
 //	    std::vector < std::future < VectorArray* > > m_futures;  // The future is later
+	    NPvector new_jobs;
 	    for (auto it = jobs.begin(); it != jobs.end(); it++) {
 		if ((*it).sum <= completed_norm+1) {
 		    // do this job ...
+		    std::cout << "Doing job :" << it->first << "," << it->second << "\n";
 		    // Check if there are vectors with this norm:
 		    if ( current->get_tree()->find(it->first) != current->get_tree()->end() &&
 			 current->get_tree()->find(it->second) != current->get_tree()->end()) {
@@ -147,7 +161,7 @@ ParallelGraver::compute(
 			    varindex
 			    );
 //			std::future < VectorArray* > fut = std::async(
-//			    std::launch::async, // Compiler can decide launch order
+//			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
 //			    ParallelGraver::graverJob2,
 //			    *(current->get_tree()->at(it->first)),
 //			    *(current->get_tree()->at(it->second)),
@@ -157,9 +171,14 @@ ParallelGraver::compute(
 			// For debug purposes, wait for finish?
 			// fut.wait();
 			m_futures.push_back (std::move(fut));
-		    }
+		    } // if (current-> ...
+		}
+		else {
+		    std::cout << "Storing job: " << it->first << "," << it->second << "\n";
+		    new_jobs.push_back(*it);
 		}
 	    } // for over jobs
+	    jobs = new_jobs;
 	    // Synchronize:
 // 	    *out << "Waiting for sync ... ";
 // 	    for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
@@ -178,8 +197,10 @@ ParallelGraver::compute(
 		    *out << "New norm bound : " << norm << "\n";
 		    max_norm = norm;
 		}
+		std::cout << "I'm going to add new vectors. So far I got " << current->get_vectors()->get_number() << std::endl;
 		// Store new Graver elements
 		current->get_vectors()->insert (*res);
+		std::cout << "and now there are: " << current->get_vectors()->get_number() << std::endl;
 		// Update normBST
 		if (current->get_tree()->find(norm) == current->get_tree()->end()) {
 		    // not found
@@ -204,6 +225,11 @@ ParallelGraver::compute(
 	    // Add new jobs for each norm pair (i, completed_norm), i=
 	    // 1..completed_norm such that there are moves in the
 	    // respective degrees.
+	    std::cout << "Current Jobs overview: \n";
+	    for (auto it=jobs.begin(); it != jobs.end(); it++)
+		std::cout <<"("<<it->first<<","<<it->second<<"), ";
+	    std::cout << std::endl;
+	    std::cout << "Current size of Graver basis: " << current->get_vectors()->get_number() << "\n";
 	    if (current->get_tree()->find(completed_norm) != current->get_tree()->end())
 		for (IntegerType i = 1; i <= completed_norm; i++)
 		    if (current->get_tree()->find(i) != current->get_tree()->end())
@@ -212,14 +238,35 @@ ParallelGraver::compute(
 	    std::sort(jobs.begin(), jobs.end());
 	}; // while (completed_norm < 2*max_norm)
 	// Before stepping to the next lift, rebuild the NormBST
-	std::cout << "Done with variable: " << varindex << " Updating norm map." << std::endl;
-	if (varindex < num_variables )
+	std::cout << "Done with variable: " << varindex << std::endl;
+	if (varindex+1 < num_variables ) {
+	    std::cout << "Updating norm map for next variable." << std::endl;
 	    current->createNormBST(varindex+1);
+	}
+	std::cout << "Ok buddy, I'm done with this variable, here's what I got\n";
+	std::cout << *current_graver_basis;
+	// TODO: At this point "current_graver_basis" will be destructed because the destructor of the 
     } // End of the big variable lifting loop
-        
     // Undo the permutation so that the users coordinates are
     // restored.
-    basis.permute(P);
+    current_graver_basis->permute(P);
+    // Todo: Do the reduction in a smarter way:
+    std::cout << "Removing negatives...";
+    basis.clear();
+    for (int i = 0; i < current_graver_basis->get_number(); i++) {
+	bool has_negative = false;
+	for (int j = i+1; j< current_graver_basis->get_number(); j++) {
+	    if ( ParallelGraver::is_below ( -((*current_graver_basis)[i]), (*current_graver_basis)[j] ) ) {
+		has_negative = true;
+		break;
+	    }
+	}
+	if (!has_negative)
+	    basis.insert(new Vector ((*current_graver_basis)[i]) );
+    }
+    std::cout << " done\n";
+    basis.sort();
+    
 } // compute()
 
 /** 
@@ -359,9 +406,12 @@ ParallelGraver::permute_full_rank_to_left (VectorArray& va){
     return pinv;
 }
 
-
 bool
-is_reducible (const Vector& v) {
+ParallelGraver::is_reducible (const Vector& v, const VectorArray& va) {
+    assert (v.get_size() == va.get_size());
+    for (int i=0; i<va.get_number(); i++)
+	if (ParallelGraver::is_below (va[i], v))
+	    return true;
     return false;
 }
 
@@ -406,24 +456,48 @@ is_reducible (const Vector& v) {
  * quick check.
  * 
  */
+
 VectorArray*
 ParallelGraver::graverJob (const VectorArray& Gr,
 			   const VectorArray& Gs,
 			   const VectorArray& current_gens,
-			   const Index& maxvar) 
+			   const Index& maxvar)
+// TODO: What is maxvar good for?
 {
-    VectorArray *result = new VectorArray (0,current_gens.get_size());
-    Vector *v;
+    // Step 1: Compute all sums f + g where f and g are sign
+    // consistent with f \in Gr, g \in Gs.
+
+    VectorArray *result = new VectorArray (0,Gr.get_size());
     for (int i = 0; i < Gr.get_number(); i++ ) {
-	for (int j = 0; j < Gs.get_number(); j++ ) {
-	    v = new Vector (Gr[i] + Gs[j]);
-	    if (!is_reducible (*v))
-		result->insert (std::move(*v));
-	    else 
-		delete v;
+	// if Gr and Gs are the same, then we don't need all pairs:
+	int j = 0;
+	if (&Gr == &Gs) 
+	    j = i+1;
+	for (; j < Gs.get_number(); j++ ) {
+	    // Check for sign consistency on the first n-1 components
+	    if (
+		(sign_consistent(Gr[i], Gs[j], Gr.get_size()-1))
+		&&
+		// not sign consistent on last variable
+		( 
+		    (Gr[i][maxvar] <0 && Gs[j][maxvar] > 0)
+		    || 
+		    (Gr[i][maxvar] > 0 && Gs[j][maxvar] < 0)
+		    )
+		) {
+		Vector sum = Gr[i] + Gs[j];
+		// std::cout << "I decided to check the sum " << Gr[i] << " + " << Gs[j] << "=" << sum << "\n" ;
+		if (ParallelGraver::is_reducible(sum, current_gens)) {
+		    // std::cout << "oops, was reducible... \n";
+		}
+		else {
+		    // std::cout << "great, not reducible ! \n";
+		    result->insert(new Vector (sum));
+		}
+		// result->insert (new Vector (Gr[i] + Gs[j]));
+	    }
 	}
     }
-    MakeGraverBasisWithZSolve(*result);
     return result;
 }
 

@@ -56,24 +56,54 @@ public:
 					 const VectorArray& basis,
 					 const VectorArray& lifted_basis);
 
-protected:
     static VectorArray* graverJob (const VectorArray& Gr,
 				   const VectorArray& Gs,
 				   const VectorArray& current_gens,
 				   const Index& maxvar);
     static VectorArray* graverJob2 (const VectorArray& Gr,
-				   const VectorArray& Gs,
-				   const VectorArray& current_gens,
-				   const Index& maxvar);
+				    const VectorArray& Gs,
+				    const VectorArray& current_gens,
+				    const Index& maxvar);
 
-private:
     static void MakeGraverBasisWithZSolve (VectorArray& basis);
     static VectorArray*  liftToIndex ( const VectorArray& va,
 				       const VectorArray& basis, 
 				       Index index);
 
+    static bool is_below (const Vector& v1, const Vector& v2);
+    static bool is_reducible (const Vector& v, const VectorArray& va);
+
+    static bool sign_consistent (const Vector& v1, const Vector& v2, Index stop);
+
+protected:
+
+private:
 
 };
+
+inline bool
+ParallelGraver::is_below (const Vector& v1, const Vector& v2) {
+    assert (v1.get_size() == v2.get_size());
+    for (int i = 0; i< v1.get_size(); i++){
+	if (v1[i] > 0 && v1[i] > v2[i])
+	    return false;
+	if (v1[i] < 0 && v1[i] < v2[i])
+	    return false;
+    }
+    return true;
+}
+
+inline bool 
+ParallelGraver::sign_consistent (const Vector& v1, const Vector& v2, Index stop)
+{
+    for (Index i = 0; i < stop; i++) {
+	if (v1[i] <0 && v2[i] >0 )
+	    return false;
+	if (v1[i] > 0 && v2[i] < 0 )
+	    return false;
+    }
+    return true;
+}
 
 } // namespace _4ti2_
 
