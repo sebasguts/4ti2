@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include "VectorArray.h"
 #include <algorithm>
+#include <utility>
 
 using namespace _4ti2_;
 
@@ -62,15 +63,16 @@ VectorArray::VectorArray(const VectorArray& vs)
 
 VectorArray::VectorArray(VectorArray&& vs)
 {
-    number = vs.number;
-    size = vs.size;
+    std::swap(number, vs.number);
+    std::swap(size, vs.size);
     std::swap(vectors, vs.vectors);
 }
 
 VectorArray&
 VectorArray::operator=(const VectorArray& vs)
 {
-    for (Index i = 0; i < number; i++) { delete vectors[i]; }
+    // This is a bug, clear calls destructors.
+    // for (Index i = 0; i < number; i++) { delete vectors[i]; }
     vectors.clear();
     number = vs.number;
     size = vs.size;
@@ -87,12 +89,12 @@ VectorArray::operator=(VectorArray&& vs)
     // Maybe we want to change this check into an assert to not slow
     // things down to much.  Keep in mind that the branching on the if
     // will lead to pipeline invalidation and (potentially) some other
-    // O3 optimizations not working.
-    if (&vs != this) {
-	std::swap(vectors, vs.vectors);
-	number = vs.number;
-	size = vs.size;
-    }
+    // O3 optimizations not working. -> Yes
+    // if (&vs != this) {
+    // }
+    std::swap(vectors, vs.vectors);
+    std::swap(number, vs.number);
+    std::swap(size, vs.size);
     return *this;
 }
 
@@ -179,7 +181,8 @@ VectorArray::insert(VectorArray&& vs, Index i)
 void
 VectorArray::clear()
 {
-    for (Index i = 0; i < number; ++i) { delete vectors[i]; }
+    // This is a bug, std::vector.clear calls destructors
+    // for (Index i = 0; i < number; ++i) { delete vectors[i]; }
     vectors.clear();
     number = 0;
 }
