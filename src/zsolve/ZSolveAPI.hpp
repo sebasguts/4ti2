@@ -47,8 +47,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 namespace _4ti2_zsolve_ {
 
 /** 
- * \brief interface to actual computation done by zsolve.
- * 
+ * \brief programming interface to zsolve.
  */
 
 template <class T>
