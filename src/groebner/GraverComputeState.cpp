@@ -22,7 +22,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include <vector>
 #include <iostream>
-#include <utility>
 
 #include "groebner/GraverComputeState.h"
 #include "groebner/Vector.h"
@@ -44,7 +43,10 @@ GraverComputeState::GraverComputeState (const VectorArray& lb){
     for (int i = lb.get_number(); i < lb.get_size(); i++){
 	m_projected_lattice_bases.push_back (new VectorArray(lb.get_number(), i));
 	VectorArray::project(lb, 0, i, *m_projected_lattice_bases.back());
+	// std::cout << "Projected basis: " << *m_projected_lattice_bases.back();
     }
+    // Insert the full basis too for lifting convenience
+    m_projected_lattice_bases.push_back(new VectorArray (lb));
 }
 
 // GraverComputeState::GraverComputeState (VectorArray *vs){
@@ -71,8 +73,6 @@ GraverComputeState::createNormBST (Index stop) {
     for (int i = 0; i < m_array->get_number(); i++){
 	IntegerType current_norm = (*m_array)[i].norm(stop);
 	VectorArray *current_vectors = NULL;
-	// The map container gives a strong guarentee of not being
-	// changed if an exception occurs
 	auto it = m_normTree->find(current_norm);
 	if (it != m_normTree->end()) {
 	    current_vectors = it->second;
@@ -84,6 +84,8 @@ GraverComputeState::createNormBST (Index stop) {
 	    m_normTree->insert( std::pair <IntegerType, VectorArray* > (current_norm, current_vectors) );
 	};
     }
+    std::cout << "Norm Tree created, minimum norm: " << m_normTree->begin()->first;
+    std::cout << ", maximum norm : " << m_normTree->rbegin()->first << "\n";
 }
 
 /** 
@@ -153,7 +155,7 @@ GraverComputeState::lift_with_basis(
     // members of the basis are rows originally.)  We don't need to
     // transpose the lifted basis because lift_with_basis correctly
     // combines its rows according to the coefficients.
-    VectorArray *basis_transposed = new VectorArray (basis.get_size(), basis.get_size());
+    VectorArray *basis_transposed = new VectorArray (basis.get_size(), basis.get_number());
     VectorArray::transpose (basis, *basis_transposed);
 
     VectorArray result = VectorArray (0, lifted_basis.get_size());
@@ -168,19 +170,19 @@ GraverComputeState::lift_with_basis(
 void
 GraverComputeState::liftToIndex ( Index index)
 {
-    // Strange, I can not plug in the function call into the swap.
-    // This here is not much worse, just one extra move, but still...
-    VectorArray va = lift_with_basis (*m_array,
-				      *m_projected_lattice_bases[index],
-				      *m_projected_lattice_bases[index+1]);
-    std::swap(*m_array, va);
-    // Note how m_array is automatically cleaned up after this swap.
+    // Interesting... does this leak memory?  It should not since
+    // VectorArray's move assignment swaps the pointers and thus the
+    // old m_array gets cleaned up.
+    *m_array = lift_with_basis (*m_array,
+				*m_projected_lattice_bases[index],
+				*m_projected_lattice_bases[index+1]);
 }
 
 
 IntegerType 
 GraverComputeState::maximum_norm () const {
     assert(m_normTree != NULL);
+    // std::cout << m_normTree->rbegin()->first << "\n";
     return m_normTree->rbegin()->first;
 }
 

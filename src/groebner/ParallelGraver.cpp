@@ -35,8 +35,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include <algorithm>
 #include <iostream>
-// #include <future>
+#include <future>
 #include <cstdlib>
+
+#include <system_error>
 
 using namespace _4ti2_;
 
@@ -47,6 +49,11 @@ ParallelGraver::ParallelGraver()
 
 ParallelGraver::~ParallelGraver()
 {
+}
+
+void print_mark() {
+    static int i = 0;
+    std::cout << "Mark no. "<< i++ << "\n";
 }
 
 void print_vector (const std::vector<int>& v){
@@ -98,8 +105,9 @@ ParallelGraver::compute(
     // Add negatives because the zsolve Graver basis does not include
     // those
     int stop = current.get_vectors().get_number();
-    for (int i = 0; i < stop; i++)
-	current.get_vectors().insert( - current.get_vectors()[i] );
+    for (int i = 0; i < stop; i++){
+	current.get_vectors().insert(-current.get_vectors()[i]);
+    }
 
     // Graver state is initialized with a negative containing Graver
     // basis now.  Time to start the lifting.
@@ -108,14 +116,14 @@ ParallelGraver::compute(
     // variable.  For instance if we have a kx3 matrix of already
     // lifted stuff, then varindex would start out as "3" and all
     // norms to be computed in the following are over 0,1,2.
-    for (Index varindex = current.get_vectors().get_size(); varindex < num_variables; varindex++ ) {
+    for (Index varindex = m_rank; varindex < num_variables; varindex++ ) {
 	*out << "Now lifting variable number " << varindex+1 << "\n";
 
-	current.liftToIndex (varindex);
+	current.liftToIndex (varindex-m_rank);
     
-	*out << "Graver basis property on rank many components:\n";
-	*out << current.get_vectors() << std::endl;
-	*out << "\n";
+// 	*out << "Graver basis property on rank many components:\n";
+// 	*out << current.get_vectors() << std::endl;
+// 	*out << "\n";
 
 	// Create auxilliary data
 	current.createNormBST (varindex);
@@ -129,101 +137,123 @@ ParallelGraver::compute(
 	NPvector jobs;
 	if (current.get_tree().cbegin()->first == 1)
 	    jobs.push_back( NP(1,1) );
-	IntegerType completed_norm = 1;
-	while (completed_norm < 2*max_norm) {
-	    std::vector < VectorArray * > m_futures; // The future is now!
-//	    std::vector < std::future < VectorArray* > > m_futures;  // The future is later
-	    NPvector new_jobs;
-	    for (auto it = jobs.begin(); it != jobs.end(); it++) {
-		if ((*it).sum <= completed_norm+1) {
-		    // do this job ...
-		    std::cout << "Doing job :" << it->first << "," << it->second << "\n";
-		    // Check if there are vectors with this norm:
-		    if ( current.get_tree().find(it->first) != current.get_tree().end() &&
-			 current.get_tree().find(it->second) != current.get_tree().end()) {
-			VectorArray *fut = graverJob (
+	IntegerType current_norm = 1;
+	while (current_norm < 2*max_norm) {
+	    std::cout << "Now doing norm: "<< current_norm << "\n";
+	    // std::vector < VectorArray * > m_futures; // The future is now!
+	    std::vector < std::future < VectorArray* > > m_futures;  // The future is later
+	    // find lowest norm jobs:
+	    NPvector lowest_norm_jobs;
+	    std::copy_if (jobs.begin(),
+			  jobs.end(),
+			  std::back_inserter(lowest_norm_jobs),
+			  [current_norm](const NP& np) -> bool 
+			  { return (np.sum == current_norm);} );
+	    auto new_end = std::remove_if (jobs.begin(),
+					   jobs.end(),
+					   [current_norm](const NP& np) -> bool 
+					   { return (np.sum == current_norm);} );
+ 	    jobs.erase (new_end, jobs.end());
+ 	    std::cout << "Lowest norm jobs : ";
+ 	    for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
+ 		std::cout << "(" << it->first << "," << it->second << "),";
+ 	    }
+	    std::cout << "\n";
+ 	    std::cout << "Other jobs: ";
+ 	    for (auto it = jobs.begin(); it != jobs.end(); it++) {
+ 		std::cout << "(" << it->first << "," << it->second << "),";
+ 	    }
+ 	    std::cout << "\n";
+	    if (lowest_norm_jobs.size() == 0) {
+		std::cout << "No jobs of norm "<< current_norm << "\n";
+	    }
+	    // Do lowest norm jobs:
+	    for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
+		std::cout << "Doing job :" << it->first << "," << it->second << "\n";
+		// Check if there are vectors with this norm:
+		if ( current.get_tree().find(it->first) != current.get_tree().end() &&
+		     current.get_tree().find(it->second) != current.get_tree().end()) {
+// 		    VectorArray *fut = graverJob (
+// 			*(current.get_tree().at(it->first)),
+// 			*(current.get_tree().at(it->second)),
+// 			current.get_vectors(),
+// 			varindex
+// 			);
+		    try {
+			std::future < VectorArray* > fut = std::async(
+			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
+			    ParallelGraver::graverJob,
 			    *(current.get_tree().at(it->first)),
 			    *(current.get_tree().at(it->second)),
 			    current.get_vectors(),
 			    varindex
 			    );
-//			std::future < VectorArray* > fut = std::async(
-//			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
-//			    ParallelGraver::graverJob2,
-//			    *(current.get_tree().at(it->first)),
-//			    *(current.get_tree().at(it->second)),
-//			    current.get_vectors(),
-//			    varindex
-//			    );
-			// For debug purposes, wait for finish?
-			// fut.wait();
 			m_futures.push_back (std::move(fut));
-		    } // if (current. ...
-		}
-		else {
-		    std::cout << "Storing job: " << it->first << "," << it->second << "\n";
-		    new_jobs.push_back(*it);
-		}
-	    } // for over jobs
-	    jobs = new_jobs;
+		    }
+		    catch (std::system_error e) {
+			std::cout << ":(\n";
+			std::exit (1);
+		    }
+		    
+		    // For debug purposes, wait for finish?
+		    // fut.wait();
+		} // if (current. ...
+	    } // for over lowest_degree_jobs
 	    // Synchronize:
-// 	    *out << "Waiting for sync ... ";
-// 	    for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
-// 		it->wait();
-// 	    *out << "Done.\n";
+ 	    *out << "Waiting for sync ... ";
+ 	    for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+ 		it->wait();
+ 	    *out << "Done.\n";
 // 	    // Retrieve results
 	    for (auto it = m_futures.begin(); it != m_futures.end(); ++it) {
-//		VectorArray *res = it->get();
-		VectorArray *res = *it;
+		VectorArray *res = it->get();
+//		VectorArray *res = *it;
 		if (res->get_number() == 0) // nothing new
 		    continue;
-		IntegerType norm = (*res)[0].norm(varindex);  // TODO: Norm need not be computed, is clear from pair (r,s)
-		*out << "Current norm: " << norm << "\n";
+//		IntegerType norm = (*res)[0].norm(varindex);  // TODO: Norm need not be computed, is clear from pair (r,s)
+		*out << "Current norm: " << current_norm << "\n";
 		// check if maximum increased
-		if (max_norm < norm) {
-		    *out << "New norm bound : " << norm << "\n";
-		    max_norm = norm;
+		if (max_norm < current_norm) {
+		    *out << "New norm bound : " << current_norm << "\n";
+		    max_norm = current_norm;
 		}
 		std::cout << "I'm going to add new vectors. So far I got " << current.get_vectors().get_number() << std::endl;
 		// Store new Graver elements
 		current.get_vectors().insert (*res);
 		std::cout << "and now there are: " << current.get_vectors().get_number() << std::endl;
 		// Update normBST
-		if (current.get_tree().find(norm) == current.get_tree().end()) {
+		if (current.get_tree().find(current_norm) == current.get_tree().end()) {
 		    // not found
 		    current.get_tree().insert( std::pair <IntegerType, VectorArray* >
-						 (norm, res));
+						 (current_norm, res));
 		    // Ownership of the VectorArray transferred to current!
 		}
 		else {
 		    // found norm, append vectors
-		    /// @TODO Move semantics
-		    for (Index vc = 0; vc < res->get_number(); vc++)
-			current.get_tree().at(norm)->insert( (*res)[vc] );
-		    delete res;
+		    current.get_tree().at(current_norm)->insert( std::move(*res));
 		}
 	    }
 	    // Clean up futures:
 	    m_futures.clear();
 	    
-	    // Now all jobs with norm sum <= completed_norm+1 are done.
+	    // Now all jobs with norm sum <= current_norm+1 are done.
 	    // Schedule new jobs:
-	    completed_norm++;
-	    // Add new jobs for each norm pair (i, completed_norm), i=
-	    // 1..completed_norm such that there are moves in the
+	    current_norm++;
+	    // Add new jobs for each norm pair (i, current_norm), i=
+	    // 1..current_norm such that there are moves in the
 	    // respective degrees.
 	    std::cout << "Current Jobs overview: \n";
 	    for (auto it=jobs.begin(); it != jobs.end(); it++)
 		std::cout <<"("<<it->first<<","<<it->second<<"), ";
 	    std::cout << std::endl;
 	    std::cout << "Current size of Graver basis: " << current.get_vectors().get_number() << "\n";
-	    if (current.get_tree().find(completed_norm) != current.get_tree().end())
-		for (IntegerType i = 1; i <= completed_norm; i++)
+	    if (current.get_tree().find(current_norm) != current.get_tree().end())
+		for (IntegerType i = 1; i <= current_norm; i++)
 		    if (current.get_tree().find(i) != current.get_tree().end())
-			jobs.push_back ( NP (i, completed_norm));
+			jobs.push_back ( NP (i, current_norm));
 	    // Keep jobs sorted according to total norm
 	    std::sort(jobs.begin(), jobs.end());
-	}; // while (completed_norm < 2*max_norm)
+	}; // while (current_norm < 2*max_norm)
 	// Before stepping to the next lift, rebuild the NormBST
 	std::cout << "Done with variable: " << varindex << std::endl;
 	if (varindex+1 < num_variables ) {
@@ -352,6 +382,7 @@ ParallelGraver::is_reducible (const Vector& v, const VectorArray& va) {
  * 
  */
 
+
 VectorArray*
 ParallelGraver::graverJob (const VectorArray& Gr,
 			   const VectorArray& Gs,
@@ -361,7 +392,6 @@ ParallelGraver::graverJob (const VectorArray& Gr,
 {
     // Step 1: Compute all sums f + g where f and g are sign
     // consistent with f \in Gr, g \in Gs.
-
     VectorArray *result = new VectorArray (0,Gr.get_size());
     for (int i = 0; i < Gr.get_number(); i++ ) {
 	// if Gr and Gs are the same, then we don't need all pairs:
@@ -381,12 +411,12 @@ ParallelGraver::graverJob (const VectorArray& Gr,
 		    )
 		) {
 		Vector sum = Gr[i] + Gs[j];
-		// std::cout << "I decided to check the sum " << Gr[i] << " + " << Gs[j] << "=" << sum << "\n" ;
+//		std::cout << "I decided to check the sum " << Gr[i] << " + " << Gs[j] << "=" << sum << "\n" ;
 		if (ParallelGraver::is_reducible(sum, current_gens)) {
-		    // std::cout << "oops, was reducible... \n";
+//		    std::cout << "oops, was reducible... \n";
 		}
 		else {
-		    // std::cout << "great, not reducible ! \n";
+//		    std::cout << "great, not reducible ! \n";
 		    result->insert(Vector(sum));
 		}
 		// result->insert (new Vector (Gr[i] + Gs[j]));
@@ -395,16 +425,6 @@ ParallelGraver::graverJob (const VectorArray& Gr,
     }
     return result;
 }
-
-VectorArray*
-ParallelGraver::graverJob2 (const VectorArray& Gr,
-			    const VectorArray& Gs,
-			    const VectorArray& current_gens,
-			    const Index& maxvar) 
-{
-    return new VectorArray (1, Gr.get_size());
-}
-
 
 void 
 ParallelGraver::MakeGraverBasisWithZSolve (VectorArray& basis){

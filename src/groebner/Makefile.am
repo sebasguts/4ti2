@@ -282,7 +282,7 @@ WRAPPERSCRIPTS =				\
 nodist_bin_SCRIPTS = $(WRAPPERSCRIPTS)
 DISTCLEANFILES = $(WRAPPERSCRIPTS)
 
-AM_LDFLAGS = -L../4ti2 -L../zsolve -R$(libdir) -l4ti2common -lzsolve
+AM_LDFLAGS = -L../4ti2 -L../zsolve -R$(libdir) -l4ti2common -lzsolve -pthread
 
 # 16 bit precision flags.
 # 4ti2int16_LDADD = lib4ti2int16.la
