@@ -103,7 +103,7 @@ ParallelGraver::compute(
     // those
     int stop = current_graver_basis->get_number();
     for (int i = 0; i < stop; i++)
-	current_graver_basis->insert( - (*current_graver_basis)[i] );
+	current_graver_basis->insert( -(*current_graver_basis)[i] );
 
     // TODO: Turn the current graver basis into an augmented vector
     // array.  They need to have their coefficients determined and
@@ -492,7 +492,7 @@ ParallelGraver::graverJob (const VectorArray& Gr,
 		}
 		else {
 		    // std::cout << "great, not reducible ! \n";
-		    result->insert(Vector (sum));
+		    result->insert(Vector(sum));
 		}
 		// result->insert (new Vector (Gr[i] + Gs[j]));
 	    }
