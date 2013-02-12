@@ -726,6 +726,23 @@ Vector::div(IntegerType d)
     for (Index i = 0; i < size; ++i) { vector[i] /= d; }
 }
 
+// Note: The two assignment operators could be probably be moved into
+// one that looks approximately like this:
+//
+// inline
+// Vector&
+// Vector::operator=(Vector v)
+// {
+//     this = Vector(v);
+//     return *this;
+// }
+// 
+// We don't do this yet since the original authors thought of another
+// semantics.  For instance the assignment operator checks if the two
+// vectors have the same length which we don't need for move
+// assignment.  Here are the two versions:
+
+
 inline
 Vector&
 Vector::operator=(const Vector& v)
@@ -739,9 +756,11 @@ inline
 Vector&
 Vector::operator=(Vector&& v)
 {
-    assert(size == v.size);
-    vector = v.vector;
-    v.vector = NULL;
+    if (vector != v.vector) {
+	size = v.size;
+	vector = v.vector;
+	v.vector = NULL;
+    }
     return *this;
 }
 
