@@ -24,6 +24,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <iostream>
 
 #include "groebner/GraverComputeState.h"
+#include "groebner/GraverVectors.h"
+#include "groebner/GraverVectorsNaive.h"
 #include "groebner/Vector.h"
 #include "groebner/VectorStream.h"
 #include "groebner/VectorArray.h"
@@ -32,15 +34,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "zsolve/ZSolveAPI.hpp"
 #include "zsolve/GraverAPI.hpp"
 
-namespace _4ti2_
-{
+using namespace _4ti2_;
+
+typedef GraverVectorsNaive GraVec;
 
 GraverComputeState::GraverComputeState (const VectorArray& lb){
-    m_normTree = new NormBST (); // Does not actually compute the tree
-    m_array = new VectorArray (0, lb.get_size());
+    m_graverVectors = new GraVec (lb);
     m_latticeBasis = new VectorArray (lb);
+    m_rank = lb.get_number(); // Trust that we got an actual basis!
 
-    for (int i = lb.get_number(); i < lb.get_size(); i++){
+    for (int i = 0; i < lb.get_size(); i++){
 	m_projected_lattice_bases.push_back (new VectorArray(lb.get_number(), i));
 	VectorArray::project(lb, 0, i, *m_projected_lattice_bases.back());
 	// std::cout << "Projected basis: " << *m_projected_lattice_bases.back();
@@ -49,20 +52,215 @@ GraverComputeState::GraverComputeState (const VectorArray& lb){
     m_projected_lattice_bases.push_back(new VectorArray (lb));
 }
 
-// GraverComputeState::GraverComputeState (VectorArray *vs){
-//     m_normTree = new NormBST ();
-//     m_latticeBasis = new VectorArray (0,vs->get_size());
-//     m_array = vs; // No ownership !
-// }
-
 GraverComputeState::~GraverComputeState() {
-    delete m_array;
-    delete m_normTree;
+    delete m_graverVectors;
     delete m_latticeBasis;
-    for (auto it = m_projected_lattice_bases.begin(); it != m_projected_lattice_bases.end(); it++)
+    for (auto it = m_projected_lattice_bases.begin(); it != m_projected_lattice_bases.end(); ++it)
 	delete *it;
 }
 
+VectorArray
+GraverComputeState::get_vectors () {
+    VectorArray v(0,m_graverVectors->get_size());
+    for (auto it = m_graverVectors->begin(); it != m_graverVectors->end(); ++it){
+	v.insert(*it);
+    }
+    return v;
+}
+
+
+VectorArray 
+GraverComputeState::get_vectors_without_negatives () {
+    VectorArray v = get_vectors();
+    VectorArray result (0,v.get_size());
+    for (int i = 0; i < v.get_number(); i++) {
+	bool has_negative = false;
+	for (int j = i+1; j < v.get_number(); j++) {
+	    if ( is_below ( -(v[i]), v[j] ) ) {
+		has_negative = true;
+		break;
+	    }
+	}
+	if (!has_negative)
+	    (v[i] <= -v[i]) ? result.insert( std::move(-v[i]) ) : result.insert(std::move(v[i]));
+    }
+    return result;
+}
+
+void 
+GraverComputeState::projectToRank () {
+    delete m_graverVectors;
+    m_graverVectors = new GraVec (*m_projected_lattice_bases[m_rank-1]);
+}
+
+inline void
+GraverComputeState::MakeGraverBasisWithZSolve() 
+{
+    VectorArray v( get_vectors() );
+    MakeGraverBasisWithZSolve (v);
+    delete m_graverVectors;
+    m_graverVectors = new GraVec ( std::move(v) );
+};
+
+void 
+GraverComputeState::liftOneStep () {
+    m_graverVectors->lift (*m_projected_lattice_bases [m_graverVectors->get_size()+1]);
+}
+
+void 
+GraverComputeState::liftGraverProperty () {
+    // Cheating
+    MakeGraverBasisWithZSolve();    
+}
+
+#if 0
+IntegerType 
+GraverComputeState::maximum_norm () const {
+    assert(m_normTree != NULL);
+    // std::cout << m_normTree->rbegin()->first << "\n";
+    return m_normTree->rbegin()->first;
+}
+#endif
+
+/** 
+ * Extend a VectorArray to be a GraverBasis (without negatives)
+ * 
+ * @param basis lattice basis to be extended to a Graver basis
+ */
+void
+GraverComputeState::MakeGraverBasisWithZSolve (VectorArray& basis){
+    // Call old zsolve Graver code to determine minimal elements.  
+    _4ti2_state *m_state = new _4ti2_zsolve_::GraverAPI <IntegerType> ();
+    // _4ti2_state_set_options(m_state, argv, argc);
+    _4ti2_matrix *m_matrix = m_state->create_matrix(basis.get_number(),
+						    basis.get_size(),
+						    "lat");
+    // Fill matrix using the GMP API
+    for (int i = 0; i < basis.get_number(); i++) {
+  	for (int j = 0; j < basis.get_size(); j++) {
+#ifdef _4ti2_GMP_
+  	    m_matrix->set_entry_mpz_class (i,j, basis[i][j]);
+#elif defined(_4ti2_INT64_)
+	    m_matrix->set_entry_int64_t (i,j, basis[i][j]);
+#elif defined(_4ti2_INT32_)
+	    m_matrix->set_entry_int32_t (i,j, basis[i][j]);
+#endif
+	}
+    }
+    m_state->compute();
+    _4ti2_matrix *m_result = m_state->get_matrix("zhom");
+    /// Potentially do better here if profiling shows that this matters
+    /// Problem: We write information to basis that is already there.
+    /// Unsure if we can savely skip the first rows because the called
+    /// code may have permuted the rows?
+    basis.renumber(m_result->get_num_rows());
+    for (int i = 0; i < m_result->get_num_rows(); i++)
+	for (int j = 0; j < m_result->get_num_cols(); j++){
+#ifdef _4ti2_GMP
+	    m_result->get_entry_mpz_class (i,j, basis[i][j]);
+#elif defined(_4ti2_INT64_)
+	    m_result->get_entry_int64_t (i,j, basis[i][j]);
+#elif defined(_4ti2_INT32_)
+	    m_result->get_entry_int32_t (i,j, basis[i][j]);
+#endif
+	}
+    delete m_state; // Clean up _4ti2_state
+
+    // Add negatives because the zsolve Graver basis does not include
+    // those
+    int stop = basis.get_number();
+    for (int i = 0; i < stop; i++){
+	basis.insert(-basis[i]);
+    }
+}
+
+/**
+ * \brief Graver job computation
+ * 
+ * Input:
+ *   * lattice basis L for \Lattice\subseteq\Z^n (typically, a coordinate projection of ker(A))
+ *   * sets of vectors G_r,G_s\in\Lattice with 1-norms r,s on first d components
+ *   * the auxiliary information for each vector should be given
+ *   from master to slave!
+ *   * d
+ *   * n = number of variables/components (Typically, we have d=n-1.)
+ * 
+ * Output:
+ *   * all sums v+w \in G_r+G_s that are minimal elements in \Lattice\setminus\{0\}
+ * 
+ * Algorithm:
+ *   * irr={}
+ *   * for all pairs (v,w) \in G_r+G_s {
+ *     * if v+w is minimal in \Lattice\setminus\{0\} {
+ *       * add auxiliary data to v+w like support, norm, ...
+ *       * set irr=irr\cup{v+w}
+ *     }
+ *   }
+ *   * return irr (including auxiliary data for each vector)
+ * 
+ * 
+ * Remarks:
+ * 
+ * * Clearly, if r=s, only half the number of pairs have to be
+ * checked.
+ * * If v and w have the same sign pattern in the last n-d
+ * components, the quick test applies and v+w is reducibly by both
+ * v and w and can thus be discarded immediately.
+ * * Consequently, if d=n-1, it is worth pre-sorting G_r and G_s
+ * according to the last component being >0, =0, <0.
+ * * For the minimality test, we could use the lattice basis and
+ * look for a nonzero vector u<>v+w in \Lattice with the same
+ * sign-pattern as v+w and with u<=v+w in this orthant.
+ * * We may also give the slave G_1, G_2, ...up to some norm for a
+ * quick check.
+ * 
+ */
+
+
+VectorArray*
+GraverComputeState::graverJob (const VectorArray& Gr,
+			   const VectorArray& Gs,
+			   const VectorArray& current_gens,
+			   const Index& maxvar)
+// TODO: What is maxvar good for?
+{
+    // Step 1: Compute all sums f + g where f and g are sign
+    // consistent with f \in Gr, g \in Gs.
+    VectorArray *result = new VectorArray (0,Gr.get_size());
+    for (int i = 0; i < Gr.get_number(); i++ ) {
+	// if Gr and Gs are the same, then we don't need all pairs:
+	int j = 0;
+	if (&Gr == &Gs) 
+	    j = i+1;
+	for (; j < Gs.get_number(); j++ ) {
+	    // Check for sign consistency on the first n-1 components
+	    if (
+		(sign_consistent(Gr[i], Gs[j], Gr.get_size()-1))
+		&&
+		// not sign consistent on last variable
+		( 
+		    (Gr[i][maxvar] <0 && Gs[j][maxvar] > 0)
+		    || 
+		    (Gr[i][maxvar] > 0 && Gs[j][maxvar] < 0)
+		    )
+		) {
+		Vector sum = Gr[i] + Gs[j];
+		std::cout << "I decided to check the sum " << Gr[i] << " + " << Gs[j] << "=" << sum << "\n" ;
+		if (GraverComputeState::is_reducible(sum, current_gens)) {
+		    std::cout << "oops, was reducible... \n";
+		}
+		else {
+		    std::cout << "great, not reducible ! \n";
+		    result->insert(Vector(sum));
+		}
+		// result->insert (new Vector (Gr[i] + Gs[j]));
+	    }
+	}
+    }
+    return result;
+}
+
+#if 0
 void
 GraverComputeState::createNormBST (Index stop) {
     std::cout << "Creating norm tree for indices 0 .. " << stop-1 << std::endl;
@@ -87,103 +285,4 @@ GraverComputeState::createNormBST (Index stop) {
     std::cout << "Norm Tree created, minimum norm: " << m_normTree->begin()->first;
     std::cout << ", maximum norm : " << m_normTree->rbegin()->first << "\n";
 }
-
-/** 
- * \brief Lift a Vector according to given lift on bases.
- * 
- * @param v Vector to be lifted
- * @param basis VectorArray consisting of the projections of lifted_basis
- * @param lifted_basis VectorArray of long basis vectors, aligned with basis
- *
- * see http://stackoverflow.com/questions/4986673/c11-rvalues-and-move-semantics-confusion
- * for why we (seem to) return by value.
- * 
- * @return A new Vector that is the lift
- */
-Vector
-GraverComputeState::lift_with_basis( 
-    const Vector& v,
-    const VectorArray& basis,
-    const VectorArray& lifted_basis)
-{
-    // use zsolve to solve (basis * x = v) (qsolve can only handle homogeneous systems atm)
-    _4ti2_zsolve_::ZSolveAPI<IntegerType> *zsolve_api = new _4ti2_zsolve_::ZSolveAPI<IntegerType>;
-    // How to pass options?
-//    char *opt = "zsolve --quiet";
-//    zsolve_api->set_options(2, &opt);
-    std::stringstream connect_basis;
-    std::stringstream connect_rhs;
-    connect_basis << basis.get_number() << " " << basis.get_size() << " ";
-    connect_basis << basis;
-    connect_rhs << "1 " << v.get_size() << " ";
-    connect_rhs << v;
-    zsolve_api->create_matrix(connect_basis, "mat");
-    zsolve_api->create_matrix(connect_rhs, "rhs");
-    zsolve_api->compute();
-    _4ti2_matrix *result = zsolve_api->get_matrix("zinhom"); // This is the desired coefficient vector
-    Vector *coefficient_vector = new Vector (lifted_basis.get_number());
-    for (int i =0; i < lifted_basis.get_number(); i++) {
-#ifdef _4ti2_GMP
-	    result->get_entry_mpz_class (0,i, (*coefficient_vector)[i]);
-#elif defined(_4ti2_INT64_)
-	    result->get_entry_int64_t (0,i, (*coefficient_vector)[i]);
-#elif defined(_4ti2_INT32_)
-	    result->get_entry_int32_t (0,i, (*coefficient_vector)[i]);
-#elif 1
-	    // This branch is only to remove -Wunused-variable warning
-	    // that appears without it.  It should never be used
-	    i = result->get_num_cols();
-#endif
-    }
-    delete zsolve_api;
-    
-    Vector result_vector (lifted_basis.get_size(), 0);
-    for (int i = 0; i < lifted_basis.get_number(); i++)
-	result_vector.add( (lifted_basis[i]) * ((*coefficient_vector)[i]));
-    delete coefficient_vector;
-    return result_vector;
-}
-
-VectorArray
-GraverComputeState::lift_with_basis( 
-    const VectorArray& va,
-    const VectorArray& basis,
-    const VectorArray& lifted_basis)
-{
-    // This is a trick.  Since zsolve solves Ax = b, we need to
-    // transpose the basis to get a coefficient vector (remember,
-    // members of the basis are rows originally.)  We don't need to
-    // transpose the lifted basis because lift_with_basis correctly
-    // combines its rows according to the coefficients.
-    VectorArray *basis_transposed = new VectorArray (basis.get_size(), basis.get_number());
-    VectorArray::transpose (basis, *basis_transposed);
-
-    VectorArray result = VectorArray (0, lifted_basis.get_size());
-    for (int i = 0; i < va.get_number(); i++)
-	// The following does a move since the return value of a
-	// function binds as an rvalue reference (hopefully).
-	result.insert(lift_with_basis (va[i], *basis_transposed, lifted_basis));
-    delete basis_transposed;
-    return result;
-}
-
-void
-GraverComputeState::liftToIndex ( Index index)
-{
-    // Interesting... does this leak memory?  It should not since
-    // VectorArray's move assignment swaps the pointers and thus the
-    // old m_array gets cleaned up.
-    *m_array = lift_with_basis (*m_array,
-				*m_projected_lattice_bases[index],
-				*m_projected_lattice_bases[index+1]);
-}
-
-
-IntegerType 
-GraverComputeState::maximum_norm () const {
-    assert(m_normTree != NULL);
-    // std::cout << m_normTree->rbegin()->first << "\n";
-    return m_normTree->rbegin()->first;
-}
-
-} // namespace _4ti2_
+#endif 

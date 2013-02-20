@@ -20,38 +20,36 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA. 
 */
 
-#ifndef _4ti2_groebner__ParallelGraver_
-#define _4ti2_groebner__ParallelGraver__
+#ifndef _4ti2_groebner__GraverVector_
+#define _4ti2_groebner__GraverVector_
 
-#include "4ti2/4ti2.h"
-#include "4ti2/4ti2xx.h"
-
-#include "groebner/Feasible.h"
-#include "groebner/Permutation.h"
-#include "groebner/VectorArray.h"
+#include "groebner/LongDenseIndexSet.h"
 #include "groebner/Vector.h"
+#include "groebner/Size.h"
 
 namespace _4ti2_
 {
 
-typedef LongDenseIndexSet IndexSet;
-
-class ParallelGraver
+class GraverVector
 {
 public:
-    ParallelGraver();
-    ~ParallelGraver();
+    GraverVector (const Vector& _v);
+    GraverVector (const GraverVector& _v);
+    GraverVector (GraverVector&& _v);
+    GraverVector& operator=(GraverVector);
+    GraverVector& operator=(const GraverVector&);
+    GraverVector& operator=(GraverVector&&);
+    ~GraverVector();
 
-    void compute(
-	Feasible& feasible,
-	VectorArray& basis);
+    void swap (GraverVector& other);
+    void fill_supports_and_norm();
 
-    static Permutation permute_full_rank_to_left (VectorArray& va);
-
-protected:
-
-private:
-
+    Vector get_vector();
+    
+    LongDenseIndexSet pos;
+    LongDenseIndexSet neg;
+    IntegerType norm; ///< Norm on first n-1 components!
+    Vector v;
 };
 
 } // namespace _4ti2_

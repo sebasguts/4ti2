@@ -20,40 +20,15 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA. 
 */
 
-#ifndef _4ti2_groebner__ParallelGraver_
-#define _4ti2_groebner__ParallelGraver__
+#include "groebner/GraverVectors.h"
 
-#include "4ti2/4ti2.h"
-#include "4ti2/4ti2xx.h"
+using namespace _4ti2_;
 
-#include "groebner/Feasible.h"
-#include "groebner/Permutation.h"
-#include "groebner/VectorArray.h"
-#include "groebner/Vector.h"
+GraverVectors::GraverVectors () {
+}
 
-namespace _4ti2_
-{
+GraverVectors::GraverVectors (const VectorArray& va) {
+}
 
-typedef LongDenseIndexSet IndexSet;
-
-class ParallelGraver
-{
-public:
-    ParallelGraver();
-    ~ParallelGraver();
-
-    void compute(
-	Feasible& feasible,
-	VectorArray& basis);
-
-    static Permutation permute_full_rank_to_left (VectorArray& va);
-
-protected:
-
-private:
-
-};
-
-} // namespace _4ti2_
-
-#endif
+GraverVectors::~GraverVectors () {
+}

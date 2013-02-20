@@ -92,6 +92,9 @@ lib4ti2sources =				\
 	Globals.cpp				\
 	GraverBasis.cpp				\
 	GraverComputeState.cpp			\
+	GraverVector.cpp			\
+	GraverVectors.cpp			\
+	GraverVectorsNaive.cpp			\
 	GroebnerBasis.cpp			\
 	HermiteAlgorithm.cpp			\
 	HybridGenSet.cpp			\
@@ -173,6 +176,9 @@ groebnerinclude_HEADERS =			\
 	Grading.h				\
 	GraverBasis.h				\
 	GraverComputeState.h			\
+	GraverVector.h				\
+	GraverVectors.h				\
+	GraverVectorsNaive.h			\
 	GroebnerBasis.h				\
 	HermiteAlgorithm.h			\
 	HybridGenSet.h				\
