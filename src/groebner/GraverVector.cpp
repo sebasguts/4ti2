@@ -24,27 +24,32 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <iostream>
 
 #include "groebner/GraverVector.h"
-#include "groebner/LongDenseIndexSet.h"
+#include "groebner/BitSet.h"
 
 using namespace _4ti2_;
 
 void 
 GraverVector::fill_supports_and_norm() {
     norm = 0;
-    for (int i = 0; i < v.get_size(); i++){
-	if (v[i] > 0) {
+    // norm is on the first n-1 entries only
+    for (int i = 0; i < v->get_size()-1; i++){
+	if ((*v)[i] > 0) {
 	    pos.set(i);
-	    norm += v[i];
+	    norm += (*v)[i];
 	}
-	else if (v[i] < 0) {
+	else if ((*v)[i] < 0) {
 	    neg.set(i);
-	    norm -= v[i];
+	    norm -= (*v)[i];
 	}
     }
+    if ((*v)[v->get_size()-1] > 0)
+	pos.set(v->get_size()-1);
+    if ((*v)[v->get_size()-1] < 0)
+	neg.set(v->get_size()-1);
 }
 
 
-GraverVector::GraverVector (const Vector& _v) : pos (v.get_size(), 0), neg (v.get_size(), 0), v(_v)
+GraverVector::GraverVector (Vector* _v) : pos (_v->get_size(), 0), neg (_v->get_size(), 0), v(_v)
 {
     fill_supports_and_norm();
 }
@@ -67,12 +72,12 @@ GraverVector::swap (GraverVector & other) {
     std::swap(neg, other.neg);
 }
 
-GraverVector& 
-GraverVector::operator=(GraverVector other)
-{
-    swap (other); 
-    return *this;
-}
+// GraverVector& 
+// GraverVector::operator=(GraverVector other)
+// {
+//     swap (other); 
+//     return *this;
+// }
 
 GraverVector& 
 GraverVector::operator=(const GraverVector& other)

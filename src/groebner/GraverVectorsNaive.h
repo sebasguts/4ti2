@@ -26,12 +26,19 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/VectorArray.h"
 #include "groebner/Vector.h"
 #include "groebner/GraverVectors.h"
+#include "groebner/GraverTypes.h"
 
 namespace _4ti2_
 {
 
 /** 
  * Naive implementation of Graver Vectors: Pretty plain list
+ *
+ * Idea: The vectors in the array are stored in a big vector array.
+ * Overlayed over this vector array are various containers storing
+ * pointers to elements of the vector array.  For instance to access
+ * all elements of a given norm one would get a std::vector of
+ * pointers to elements in the VectorArray.
  */
 class GraverVectorsNaive : public GraverVectors
 {
@@ -50,9 +57,20 @@ public:
     void removeNegatives (bool lexicographic = true); ///< Keep only v or -v for each vector
 
     Size get_size(); ///< Dimension aka length aka size
-    
-    void insert (Vector v); ///< Insert a new Vector
-    void insert (Vector&& v); ///< Insert a new Vector
+    Size get_number() { return m_data->get_number();}; ///< Number of Vectors stored
+
+    VectorArray& get_vectors();
+    IntegerType get_max_norm(); // only on the first n-1 elements
+
+    // Hmm, the signature is different... that's a bit bad style
+    VecVecP& get_vectors(IntegerType n);
+
+    bool has_vectors_with_norm (IntegerType n);
+
+    bool is_reducible (const Vector& v) const;
+
+    void insert (Vector&& v); ///< Insert a new Vector (always move)
+    void insert (VectorArray&& va);
 
     void lift (const VectorArray& lifted_basis); ///< Lift to next dimension
 
@@ -62,11 +80,42 @@ private:
 			    const VectorArray& basis,
 			    const VectorArray& lifted_basis);
 
+    void createNormOL (); // Create the norm overlay from scratch
+
 private:
     VectorArray *m_data;
-    std::vector<Vector> m_data2;
-    Size size;
+    
+    NormOL m_normOL; ///< Norm overlay
+
+    std::vector<Vector> m_data2; // Dummy to satisfy the iterators
+//    Size size;
 };
+
+
+inline
+VectorArray&
+GraverVectorsNaive::get_vectors() {
+    return *m_data;
+}
+
+inline
+VecVecP& 
+GraverVectorsNaive::get_vectors(IntegerType n){
+    assert (m_normOL.find(n) != m_normOL.end());
+    return m_normOL.at(n);
+}
+
+inline
+IntegerType 
+GraverVectorsNaive::get_max_norm() {
+    return m_normOL.rbegin()->first;
+}
+
+inline
+bool
+GraverVectorsNaive::has_vectors_with_norm (IntegerType n) {
+    return !(m_normOL.find(n) == m_normOL.end());
+}
 
 } // namespace _4ti2_
 

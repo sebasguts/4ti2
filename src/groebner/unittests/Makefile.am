@@ -24,6 +24,9 @@ TESTS=testMain
 
 testMain_SOURCES = \
 	testMain.cpp \
+	GraverComputeState.cpp \
+	GraverVectors.cpp \
+	GraverVector.cpp \
 	ParallelGraver.cpp \
 	Vector.cpp
 

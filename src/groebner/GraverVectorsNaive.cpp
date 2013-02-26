@@ -40,6 +40,8 @@ GraverVectorsNaive::GraverVectorsNaive () {
 
 GraverVectorsNaive::GraverVectorsNaive (const VectorArray& va){
     m_data = new VectorArray (va);
+    // size = m_data->get_size();
+    createNormOL();
 };
     
 GraverVectorsNaive::~GraverVectorsNaive() {
@@ -71,17 +73,53 @@ GraverVectorsNaive::removeNegatives (bool lexicographic) {
 Size 
 GraverVectorsNaive::get_size(){
     return m_data->get_size();
-} 
-    
-void 
-GraverVectorsNaive::insert (Vector v) {
-    m_data->insert(v);
-} 
+}
+
+void printMark () {
+    static int i = 1;
+    std::cout << "Mark no: " << i++ << "\n";
+}
 
 void 
 GraverVectorsNaive::insert (Vector&& v) {
-    m_data->insert(std::move(v));
-} 
+    IntegerType norm = v.norm(m_data->get_size()-1);
+    // Warning, we should not construct a GraverVector from v now
+    // since the following move will change the adress of what we are
+    // attempting to store.  :( This is a design error. (Todo)
+    m_data->insert(std::move (v));
+    GraverVector g ( & (*m_data)[m_data->get_number()-1] );
+    auto it = m_normOL.find(norm);
+    if (it == m_normOL.end()) {
+	VecVecP tmp;
+	tmp.push_back (g);
+	m_normOL.insert ( std::pair <IntegerType, VecVecP> (norm, std::move(tmp)));
+    }
+    else {
+	it->second.push_back(g);
+    }
+}
+
+void 
+GraverVectorsNaive::insert (VectorArray&& va) {
+    for (int i = 0; i < va.get_number(); i++){
+	insert (std::move(va[i]));
+    }
+}
+
+bool
+GraverVectorsNaive::is_reducible(const Vector& v) const {
+    Vector tmp (v);
+    GraverVector g (&tmp);
+    for (auto it = m_normOL.begin(); 
+	 (it != m_normOL.end()) && (g.norm >= it->first); // certainly not reducible
+	 it++) {
+	for (auto jt = it->second.begin(); jt != it->second.end(); jt++ ){
+	    if (! jt->is_sign_support_below (g) ) continue;
+	    if (jt->is_below (g)) return true;
+	}
+    }
+    return false;
+}
 
 
 /** 
@@ -132,7 +170,6 @@ GraverVectorsNaive::lift_with_basis(
 #endif
     }
     delete zsolve_api;
-    
     Vector result_vector (lifted_basis.get_size(), 0);
     for (int i = 0; i < lifted_basis.get_number(); i++)
 	result_vector.add( (lifted_basis[i]) * ((*coefficient_vector)[i]));
@@ -150,7 +187,7 @@ GraverVectorsNaive:: lift (const VectorArray& lifted_basis)
     // combines its rows according to the coefficients.
     VectorArray *basis = new VectorArray (lifted_basis.get_number(), lifted_basis.get_size()-1);
     VectorArray::project(lifted_basis, 0, lifted_basis.get_size()-1, *basis);
-    VectorArray *basis_transposed = new VectorArray (lifted_basis.get_size(), basis->get_number());
+    VectorArray *basis_transposed = new VectorArray (lifted_basis.get_size()-1, basis->get_number());
     VectorArray::transpose (*basis, *basis_transposed);
     delete basis;
 
@@ -162,7 +199,5 @@ GraverVectorsNaive:: lift (const VectorArray& lifted_basis)
     delete basis_transposed;
     delete m_data;
     m_data = result;
+    createNormOL();
 }
-
-
-

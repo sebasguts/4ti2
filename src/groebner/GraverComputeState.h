@@ -27,10 +27,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <map>
 
 #include "groebner/GraverVectors.h"
+#include "groebner/GraverVectorsNaive.h"
 #include "groebner/VectorArray.h"
 
 namespace _4ti2_
 {
+
+// Choose your GraverVectors implementation here.
+typedef GraverVectorsNaive GraVec;
 
 class GraverComputeState
 {
@@ -38,7 +42,7 @@ public:
     GraverComputeState(const VectorArray& lb); ///< copy lattice basis
     ~GraverComputeState();
 
-    VectorArray get_vectors (); ///< Current state of computation
+    VectorArray get_vectors () {return m_graverVectors->get_vectors();}; ///< Current state of computation
     VectorArray get_vectors_without_negatives (); ///< Get vectors without duplicating negatives
 
     void projectToRank (); ///< Project down to rank of the problem
@@ -50,26 +54,21 @@ public:
 private:
     static void MakeGraverBasisWithZSolve (VectorArray& basis);
 
-    static bool is_below (const Vector& v1, const Vector& v2);
-    static bool is_reducible (const Vector& v, const VectorArray& va);
-    static bool sign_consistent (const Vector& v1, const Vector& v2, Index stop);
+    // static bool is_below (const Vector& v1, const Vector& v2);
+    // static bool is_reducible (const Vector& v, const VectorArray& va);
+    // static bool sign_consistent (const Vector& v1, const Vector& v2, Index stop);
 
-    static VectorArray* graverJob (const VectorArray& Gr,
-				   const VectorArray& Gs,
-				   const VectorArray& current_gens,
-				   const Index& maxvar);
+    VectorArray graverJob (const VecVecP& Gr,  const VecVecP& Gs) const;
 
-// Data:
 private:
     VectorArray *m_latticeBasis;
     GraverVectors *m_graverVectors;
     std::vector < VectorArray* > m_projected_lattice_bases;
 
-    // NormBST *m_normTree;
-    // Index m_stopindex; //?
     Size m_rank;
 };
 
+#if 0
 inline bool
 GraverComputeState::is_below (const Vector& v1, const Vector& v2) {
     assert (v1.get_size() == v2.get_size());
@@ -102,6 +101,7 @@ GraverComputeState::is_reducible (const Vector& v, const VectorArray& va) {
 	    return true;
     return false;
 }
+#endif 
 
 
 } // namespace _4ti2_

@@ -176,6 +176,7 @@ groebnerinclude_HEADERS =			\
 	Grading.h				\
 	GraverBasis.h				\
 	GraverComputeState.h			\
+	GraverTypes.h				\
 	GraverVector.h				\
 	GraverVectors.h				\
 	GraverVectorsNaive.h			\

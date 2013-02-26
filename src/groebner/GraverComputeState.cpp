@@ -20,10 +20,14 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA. 
 */
 
+#include <algorithm>
+#include <future>
+#include <map>
 #include <vector>
 #include <iostream>
 
 #include "groebner/GraverComputeState.h"
+#include "groebner/GraverTypes.h"
 #include "groebner/GraverVectors.h"
 #include "groebner/GraverVectorsNaive.h"
 #include "groebner/Vector.h"
@@ -35,8 +39,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "zsolve/GraverAPI.hpp"
 
 using namespace _4ti2_;
-
-typedef GraverVectorsNaive GraVec;
 
 GraverComputeState::GraverComputeState (const VectorArray& lb){
     m_graverVectors = new GraVec (lb);
@@ -59,17 +61,19 @@ GraverComputeState::~GraverComputeState() {
 	delete *it;
 }
 
-VectorArray
-GraverComputeState::get_vectors () {
-    VectorArray v(0,m_graverVectors->get_size());
-    for (auto it = m_graverVectors->begin(); it != m_graverVectors->end(); ++it){
-	v.insert(*it);
+inline bool
+is_below (const Vector& v1, const Vector& v2) {
+    assert (v1.get_size() == v2.get_size());
+    for (int i = 0; i< v1.get_size(); i++){
+	if (v1[i] > 0 && v1[i] > v2[i])
+	    return false;
+	if (v1[i] < 0 && v1[i] < v2[i])
+	    return false;
     }
-    return v;
+    return true;
 }
 
-
-VectorArray 
+VectorArray
 GraverComputeState::get_vectors_without_negatives () {
     VectorArray v = get_vectors();
     VectorArray result (0,v.get_size());
@@ -87,13 +91,14 @@ GraverComputeState::get_vectors_without_negatives () {
     return result;
 }
 
-void 
+void
 GraverComputeState::projectToRank () {
+    std::cout << "In projectToRank\n";
     delete m_graverVectors;
-    m_graverVectors = new GraVec (*m_projected_lattice_bases[m_rank-1]);
+    m_graverVectors = new GraVec (*m_projected_lattice_bases[m_rank]);
 }
 
-inline void
+void
 GraverComputeState::MakeGraverBasisWithZSolve() 
 {
     VectorArray v( get_vectors() );
@@ -104,23 +109,125 @@ GraverComputeState::MakeGraverBasisWithZSolve()
 
 void 
 GraverComputeState::liftOneStep () {
+    std::cout << "Lifting one step: " << m_graverVectors->get_size() << "->" << m_graverVectors->get_size()+1 << "\n";
+    std::cout << "Current Vectors:\n";
+    std::cout << m_graverVectors->get_vectors();
+    std::cout << "Basis for lifting: \n";
+    std::cout << *m_projected_lattice_bases[m_graverVectors->get_size()+1];
     m_graverVectors->lift (*m_projected_lattice_bases [m_graverVectors->get_size()+1]);
+    std::cout << "Done lifting one step\n";
 }
 
 void 
 GraverComputeState::liftGraverProperty () {
-    // Cheating
-    MakeGraverBasisWithZSolve();    
-}
+    IntegerType max_norm = m_graverVectors->get_max_norm ();
+    std::cout << "Maximum norm on first components:" << max_norm << "\n";
 
-#if 0
-IntegerType 
-GraverComputeState::maximum_norm () const {
-    assert(m_normTree != NULL);
-    // std::cout << m_normTree->rbegin()->first << "\n";
-    return m_normTree->rbegin()->first;
+    typedef _4ti2_zsolve_::NormPair< IntegerType > NP;
+    typedef std::vector< NP > NPvector;
+    NPvector jobs;
+    if (m_graverVectors->has_vectors_with_norm(1))
+	jobs.push_back( NP(1,1) );
+    IntegerType current_norm = 0;
+    while (current_norm < 2*max_norm) {
+	current_norm++;
+	std::cout << "Now doing norm: "<< current_norm << "\n";
+	// std::vector < VectorArray * > m_futures; // The future is now!
+	std::vector < std::future < VectorArray > > m_futures;  // The future is later
+	// find lowest norm jobs:
+	NPvector lowest_norm_jobs;
+	std::copy_if (jobs.begin(),
+		      jobs.end(),
+		      std::back_inserter(lowest_norm_jobs),
+		      [current_norm](const NP& np) -> bool 
+		      { return (np.sum == current_norm);} );
+	auto new_end = std::remove_if (jobs.begin(),
+				       jobs.end(),
+				       [current_norm](const NP& np) -> bool 
+				       { return (np.sum == current_norm);} );
+	jobs.erase (new_end, jobs.end());
+	std::cout << "Lowest norm jobs : ";
+	for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
+	    std::cout << "(" << it->first << "," << it->second << "),";
+	}
+	std::cout << "\n";
+	std::cout << "Other jobs: ";
+	for (auto it = jobs.begin(); it != jobs.end(); it++) {
+	    std::cout << "(" << it->first << "," << it->second << "),";
+	}
+	std::cout << "\n";
+	if (lowest_norm_jobs.size() == 0) {
+	    std::cout << "No jobs of norm "<< current_norm << "\n";
+	}
+	// Do lowest norm jobs:
+	for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
+	    std::cout << "Doing job :" << it->first << "," << it->second << "\n";
+	    // Check if there are vectors with this norm:
+	    if ( m_graverVectors->has_vectors_with_norm( it->first ) &&
+		 m_graverVectors->has_vectors_with_norm( it->second )){
+		// Remarks: 
+		// - the std::cref wrappers are needed to prevent copy on pass (see http://stackoverflow.com/questions/14851163/why-does-stdasync-copy-its-const-arguments)
+		// - the launch directive can be modified to start more or less threads, having no directive lets the runtime code decicde
+		graverJob (std::cref (m_graverVectors->get_vectors(it->first)),
+			   std::cref (m_graverVectors->get_vectors(it->second)));
+		try {
+		    std::future < VectorArray > fut = std::async(
+			// std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
+			&GraverComputeState::graverJob,
+			this,
+			std::cref (m_graverVectors->get_vectors(it->first)),
+			std::cref (m_graverVectors->get_vectors(it->second)));
+		    m_futures.push_back (std::move(fut));
+		}
+		catch (std::system_error e) {
+		    std::cout << "Can't create threads :(, exiting.\n";
+		    std::exit (1);
+		}
+		// For debug purposes, wait for finish?
+		// fut.wait();
+	    } // if (current. ...
+	} // for over lowest_degree_jobs
+	// Synchronize:
+	std::cout << "Waiting for sync ... ";
+	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+	    it->wait();
+	std::cout << "Done.\n";
+	// Retrieve results
+	for (auto it = m_futures.begin(); it != m_futures.end(); ++it) {
+	    VectorArray res = it->get();
+	    if (res.get_number() == 0) // nothing new
+		continue;
+	    std::cout << "Current norm: " << current_norm << "\n";
+	    // check if maximum increased
+	    if (max_norm < current_norm) {
+		std::cout << "New norm bound : " << current_norm << "\n";
+		max_norm = current_norm;
+	    }
+	    std::cout << "I'm going to add new vectors. So far I got " << m_graverVectors->get_number() << std::endl;
+	    // Store new Graver elements
+	    m_graverVectors->insert(std::move(res));
+	    std::cout << "and now there are: " << m_graverVectors->get_number() << std::endl;
+	}
+	// Clean up futures:
+	m_futures.clear();
+	    
+	// Now all jobs with norm sum <= current_norm are done.
+	// Add new jobs for each norm pair (i, current_norm), i=
+	// 1..current_norm such that there are moves in the
+	// respective degrees.
+	std::cout << "Current Jobs overview: \n";
+	for (auto it=jobs.begin(); it != jobs.end(); it++)
+	    std::cout <<"("<<it->first<<","<<it->second<<"), ";
+	std::cout << std::endl;
+	std::cout << "Current size of Graver basis: " << m_graverVectors->get_number() << "\n";
+	if (m_graverVectors->has_vectors_with_norm(current_norm))
+	    for (IntegerType i = 1; i <= current_norm; i++)
+		if (m_graverVectors->has_vectors_with_norm(i))
+		    jobs.push_back ( NP (i, current_norm));
+	// Keep jobs sorted according to total norm
+	std::sort(jobs.begin(), jobs.end());
+    }; // while (current_norm < 2*max_norm)
 }
-#endif
 
 /** 
  * Extend a VectorArray to be a GraverBasis (without negatives)
@@ -217,41 +324,30 @@ GraverComputeState::MakeGraverBasisWithZSolve (VectorArray& basis){
  */
 
 
-VectorArray*
-GraverComputeState::graverJob (const VectorArray& Gr,
-			   const VectorArray& Gs,
-			   const VectorArray& current_gens,
-			   const Index& maxvar)
-// TODO: What is maxvar good for?
+VectorArray
+GraverComputeState::graverJob (const VecVecP& Gr, const VecVecP& Gs) const
 {
     // Step 1: Compute all sums f + g where f and g are sign
     // consistent with f \in Gr, g \in Gs.
-    VectorArray *result = new VectorArray (0,Gr.get_size());
-    for (int i = 0; i < Gr.get_number(); i++ ) {
+    VectorArray result (0,Gr[0].v->get_size());
+    for (uint i = 0; i < Gr.size(); i++ ) {
 	// if Gr and Gs are the same, then we don't need all pairs:
-	int j = 0;
-	if (&Gr == &Gs) 
+	uint j = 0;
+	if (&Gr == &Gs)
 	    j = i+1;
-	for (; j < Gs.get_number(); j++ ) {
-	    // Check for sign consistency on the first n-1 components
-	    if (
-		(sign_consistent(Gr[i], Gs[j], Gr.get_size()-1))
-		&&
-		// not sign consistent on last variable
-		( 
-		    (Gr[i][maxvar] <0 && Gs[j][maxvar] > 0)
-		    || 
-		    (Gr[i][maxvar] > 0 && Gs[j][maxvar] < 0)
-		    )
-		) {
-		Vector sum = Gr[i] + Gs[j];
-		std::cout << "I decided to check the sum " << Gr[i] << " + " << Gs[j] << "=" << sum << "\n" ;
-		if (GraverComputeState::is_reducible(sum, current_gens)) {
-		    std::cout << "oops, was reducible... \n";
+	for (; j < Gs.size(); j++ ) {
+	    // Check for sign consistency on the first n-1 components and anti-sign consistenty on last entry
+	    if ( Gr[i].is_applicable (Gs[j])) 
+	    {
+		// Todo: 'Quickcheck'
+		Vector sum = *Gr[i].v + *Gs[j].v;
+		// std::cout << "I decided to check the sum " << *Gr[i].v << " + " << *Gs[j].v << "=" << sum << "\n" ;
+		if (m_graverVectors->is_reducible (sum)) {
+		    // std::cout << "oops, was reducible... \n";
 		}
 		else {
-		    std::cout << "great, not reducible ! \n";
-		    result->insert(Vector(sum));
+		    // std::cout << "great, not reducible ! \n";
+		    result.insert(std::move(sum));
 		}
 		// result->insert (new Vector (Gr[i] + Gs[j]));
 	    }
@@ -260,29 +356,28 @@ GraverComputeState::graverJob (const VectorArray& Gr,
     return result;
 }
 
-#if 0
 void
-GraverComputeState::createNormBST (Index stop) {
-    std::cout << "Creating norm tree for indices 0 .. " << stop-1 << std::endl;
-    delete m_normTree;
-    m_stopindex = stop;
-    m_normTree = new NormBST ();
+GraverVectorsNaive::createNormOL () {
+    std::cout << "Creating new norm overlay" << std::endl;
+    m_normOL.clear();
     /// @TODO: Parallelize this computation by splitting the todolist
-    for (int i = 0; i < m_array->get_number(); i++){
-	IntegerType current_norm = (*m_array)[i].norm(stop);
-	VectorArray *current_vectors = NULL;
-	auto it = m_normTree->find(current_norm);
-	if (it != m_normTree->end()) {
-	    current_vectors = it->second;
-	    current_vectors->insert( (*m_array)[i] );
-	} 
+    for (int i = 0; i < m_data->get_number(); i++){
+	std::cout << (*m_data)[i] << ": ";
+	IntegerType current_norm = (*m_data)[i].norm(m_data->get_size()-1); /// Compute norm of first n-1 entries!
+	std::cout << current_norm << "\n";
+	GraverVector g ( &(*m_data)[i] );
+	auto it = m_normOL.find(current_norm);
+	if (it == m_normOL.end()) {
+	    // If the norm does not exist, create it
+	    // std::pair <IntegerType, std::vector< Vector* > > f(current_norm, );
+	    VecVecP tmp;
+	    tmp.push_back( g );
+	    m_normOL.insert(std::pair <IntegerType, VecVecP> (current_norm, std::move(tmp)) );
+	}
 	else {
-	    current_vectors = new VectorArray (0,m_array->get_size());
-	    current_vectors->insert( (*m_array)[i] );
-	    m_normTree->insert( std::pair <IntegerType, VectorArray* > (current_norm, current_vectors) );
-	};
+	    it->second.push_back ( g );
+	}
     }
-    std::cout << "Norm Tree created, minimum norm: " << m_normTree->begin()->first;
-    std::cout << ", maximum norm : " << m_normTree->rbegin()->first << "\n";
+    std::cout << "Norm overlay created, minimum norm: " << m_normOL.begin()->first;
+    std::cout << ", maximum norm : " << m_normOL.rbegin()->first << "\n";
 }
-#endif 

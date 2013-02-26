@@ -27,12 +27,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/VectorArray.h"
 #include "groebner/Vector.h"
 #include "groebner/GraverVectors.h"
+#include "groebner/GraverTypes.h"
 
 namespace _4ti2_
 {
 
-typedef std::vector<Vector>::iterator GraverVectorsIterator;
- 
 /** 
  * Abstraction of a bunch of Graver Vectors.  Interface only.
  * 
@@ -55,8 +54,21 @@ public:
     virtual void removeNegatives (bool lexicographic = true) = 0; ///< Keep only v or -v for each vector
 
     virtual Size get_size() = 0; ///< Dimension aka length aka size
+    virtual Size get_number() = 0; ///< Dimension aka length aka size
+
+    virtual VectorArray& get_vectors() = 0;
+    virtual IntegerType get_max_norm() = 0; // only on the first n-1 elements
+
+    virtual VecVecP& get_vectors(IntegerType n) = 0;
+    virtual bool has_vectors_with_norm (IntegerType n) = 0;
+
+    virtual bool is_reducible (const Vector& v) const = 0;
     
-    virtual void insert (Vector v) = 0; ///< Insert a new Vector
+//    virtual void insert (Vector v) = 0; ///< Insert a new Vector
+    virtual void insert (Vector&& v) = 0; ///< Insert a new Vector
+//    virtual void insert (VectorArray va) = 0;
+    virtual void insert (VectorArray&& va) = 0;
+
     virtual void lift (const VectorArray& lifted_basis) = 0; ///< Lift to next dimension
 
 // friend class GraverVectorsIterator;
