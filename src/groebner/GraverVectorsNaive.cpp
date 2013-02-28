@@ -99,25 +99,41 @@ GraverVectorsNaive::insert (Vector&& v) {
     }
 }
 
+void
+GraverVectorsNaive::check_sizes() {
+    long size1 = m_data->get_number();
+    long size2 = 0;
+    for (auto it = m_normOL.begin(); it != m_normOL.end(); it++){
+	size2 += it->second.size();
+    }
+    std::cout << "Sizes are: " << size1 << ", " << size2 << "\n";
+}
+
 void 
 GraverVectorsNaive::insert (VectorArray&& va) {
     for (int i = 0; i < va.get_number(); i++){
 	insert (std::move(va[i]));
     }
+    check_sizes();
 }
 
 bool
 GraverVectorsNaive::is_reducible(const Vector& v) const {
+//    int hits = 0;
     Vector tmp (v);
     GraverVector g (&tmp);
     for (auto it = m_normOL.begin(); 
 	 (it != m_normOL.end()) && (g.norm >= it->first); // certainly not reducible
 	 it++) {
 	for (auto jt = it->second.begin(); jt != it->second.end(); jt++ ){
-	    if (! jt->is_sign_support_below (g) ) continue;
+ 	    if (! jt->is_sign_support_below (g) ) {
+// 		hits++;
+ 		continue;
+ 	    }
 	    if (jt->is_below (g)) return true;
 	}
     }
+//    std::cout << "Number of hits in this reduction: " << hits << std::endl;
     return false;
 }
 

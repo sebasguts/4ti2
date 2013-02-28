@@ -118,6 +118,17 @@ GraverComputeState::liftOneStep () {
     std::cout << "Done lifting one step\n";
 }
 
+void print_start(){
+    static int i = 0;
+    std::cout << "Start mark no. " << i++ << "\n";
+}
+
+void print_ende(){
+    static int i = 0;
+    std::cout << "End mark no. " << i++ << "\n";
+}
+
+
 void 
 GraverComputeState::liftGraverProperty () {
     IntegerType max_norm = m_graverVectors->get_max_norm ();
@@ -132,8 +143,8 @@ GraverComputeState::liftGraverProperty () {
     while (current_norm < 2*max_norm) {
 	current_norm++;
 	std::cout << "Now doing norm: "<< current_norm << "\n";
-	// std::vector < VectorArray * > m_futures; // The future is now!
-	std::vector < std::future < VectorArray > > m_futures;  // The future is later
+	// std::vector < std::future < VectorArray > > m_futures;
+	std::vector < VectorArray > m_futures;
 	// find lowest norm jobs:
 	NPvector lowest_norm_jobs;
 	std::copy_if (jobs.begin(),
@@ -165,36 +176,36 @@ GraverComputeState::liftGraverProperty () {
 	    // Check if there are vectors with this norm:
 	    if ( m_graverVectors->has_vectors_with_norm( it->first ) &&
 		 m_graverVectors->has_vectors_with_norm( it->second )){
+		m_futures.push_back ( graverJob (m_graverVectors->get_vectors(it->first), m_graverVectors->get_vectors(it->second)));
 		// Remarks: 
 		// - the std::cref wrappers are needed to prevent copy on pass (see http://stackoverflow.com/questions/14851163/why-does-stdasync-copy-its-const-arguments)
 		// - the launch directive can be modified to start more or less threads, having no directive lets the runtime code decicde
-		graverJob (std::cref (m_graverVectors->get_vectors(it->first)),
-			   std::cref (m_graverVectors->get_vectors(it->second)));
-		try {
-		    std::future < VectorArray > fut = std::async(
-			// std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
-			&GraverComputeState::graverJob,
-			this,
-			std::cref (m_graverVectors->get_vectors(it->first)),
-			std::cref (m_graverVectors->get_vectors(it->second)));
-		    m_futures.push_back (std::move(fut));
-		}
-		catch (std::system_error e) {
-		    std::cout << "Can't create threads :(, exiting.\n";
-		    std::exit (1);
-		}
+//		try {
+//		    std::future < VectorArray > fut = std::async(
+//			std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
+//			&GraverComputeState::graverJob,
+//			this,
+//			std::cref (m_graverVectors->get_vectors(it->first)),
+//			std::cref (m_graverVectors->get_vectors(it->second)));
+//		    m_futures.push_back (std::move(fut));
+//		}
+//		catch (std::system_error e) {
+//		    std::cout << "Can't create threads :(, exiting.\n";
+//		    std::exit (1);
+//		}
 		// For debug purposes, wait for finish?
 		// fut.wait();
-	    } // if (current. ...
+	    } // if there are pairs of vectors in this job
 	} // for over lowest_degree_jobs
 	// Synchronize:
-	std::cout << "Waiting for sync ... ";
-	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
-	    it->wait();
-	std::cout << "Done.\n";
+// 	std::cout << "Waiting for sync ... ";
+// 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+// 	    it->wait();
+// 	std::cout << "Done.\n";
 	// Retrieve results
 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it) {
-	    VectorArray res = it->get();
+	    // VectorArray res = it->get();
+	    VectorArray res = std::move(*it);
 	    if (res.get_number() == 0) // nothing new
 		continue;
 	    std::cout << "Current norm: " << current_norm << "\n";
@@ -327,6 +338,7 @@ GraverComputeState::MakeGraverBasisWithZSolve (VectorArray& basis){
 VectorArray
 GraverComputeState::graverJob (const VecVecP& Gr, const VecVecP& Gs) const
 {
+    std::cout << "I'm doing a job of size " << Gr.size() * Gs.size() << "...";
     // Step 1: Compute all sums f + g where f and g are sign
     // consistent with f \in Gr, g \in Gs.
     VectorArray result (0,Gr[0].v->get_size());
@@ -353,6 +365,7 @@ GraverComputeState::graverJob (const VecVecP& Gr, const VecVecP& Gs) const
 	    }
 	}
     }
+    std::cout << " ... Done.\n";
     return result;
 }
 

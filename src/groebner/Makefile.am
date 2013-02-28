@@ -56,9 +56,9 @@ AM_CXXFLAGS += -D__STDC_LIMIT_MACROS
 # The optimisation flags.
 AM_CXXFLAGS += -DNDEBUG
 # Uncomment the next line for debugging.
-AM_CXXFLAGS += -ggdb
+# AM_CXXFLAGS += -ggdb
 # Uncomment the next line for profiling.
-#AM_CXXFLAGS += -pg
+AM_CXXFLAGS += -pg
 
 lib4ti2sources =				\
 	4ti2API.cpp				\
@@ -115,6 +115,7 @@ lib4ti2sources =				\
 	QSolveAPI.cpp				\
 	RayAlgorithm.cpp			\
 	RaysAPI.cpp				\
+	ReductionTree.cpp			\
 	SaturationGenSet.cpp			\
 	ShortDenseIndexSet.cpp			\
 	ShortDenseIndexSetStream.cpp		\
@@ -211,6 +212,7 @@ groebnerinclude_HEADERS =			\
 	RaysAPI.h				\
 	RaySupportAlgorithm.h			\
 	Reduction.h				\
+	ReductionTree.h				\
 	SaturationGenSet.h			\
 	ShortDenseIndexSet.h			\
 	ShortDenseIndexSetStream.h		\

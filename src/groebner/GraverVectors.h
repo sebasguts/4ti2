@@ -54,7 +54,7 @@ public:
     virtual void removeNegatives (bool lexicographic = true) = 0; ///< Keep only v or -v for each vector
 
     virtual Size get_size() = 0; ///< Dimension aka length aka size
-    virtual Size get_number() = 0; ///< Dimension aka length aka size
+    virtual Size get_number() = 0; ///< Number of stored vectors
 
     virtual VectorArray& get_vectors() = 0;
     virtual IntegerType get_max_norm() = 0; // only on the first n-1 elements

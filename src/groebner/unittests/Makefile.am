@@ -28,6 +28,7 @@ testMain_SOURCES = \
 	GraverVectors.cpp \
 	GraverVector.cpp \
 	ParallelGraver.cpp \
+	ReductionTree.cpp \
 	Vector.cpp
 
 LDADD = ../lib4ti2int64.la

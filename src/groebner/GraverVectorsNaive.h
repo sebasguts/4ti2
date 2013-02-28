@@ -82,6 +82,8 @@ private:
 
     void createNormOL (); // Create the norm overlay from scratch
 
+    void check_sizes();
+
 private:
     VectorArray *m_data;
     
