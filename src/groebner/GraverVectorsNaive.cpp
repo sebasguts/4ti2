@@ -217,3 +217,29 @@ GraverVectorsNaive:: lift (const VectorArray& lifted_basis)
     m_data = result;
     createNormOL();
 }
+
+void
+GraverVectorsNaive::createNormOL () {
+    std::cout << "Creating new norm overlay" << std::endl;
+    m_normOL.clear();
+    /// @TODO: Parallelize this computation by splitting the todolist
+    for (int i = 0; i < m_data->get_number(); i++){
+	std::cout << (*m_data)[i] << ": ";
+	IntegerType current_norm = (*m_data)[i].norm(m_data->get_size()-1); /// Compute norm of first n-1 entries!
+	std::cout << current_norm << "\n";
+	GraverVector g ( &(*m_data)[i] );
+	auto it = m_normOL.find(current_norm);
+	if (it == m_normOL.end()) {
+	    // If the norm does not exist, create it
+	    // std::pair <IntegerType, std::vector< Vector* > > f(current_norm, );
+	    VecVecP tmp;
+	    tmp.push_back( g );
+	    m_normOL.insert(std::pair <IntegerType, VecVecP> (current_norm, std::move(tmp)) );
+	}
+	else {
+	    it->second.push_back ( g );
+	}
+    }
+    std::cout << "Norm overlay created, minimum norm: " << m_normOL.begin()->first;
+    std::cout << ", maximum norm : " << m_normOL.rbegin()->first << "\n";
+}
