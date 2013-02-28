@@ -27,6 +27,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/Vector.h"
 #include "groebner/GraverVectors.h"
 #include "groebner/GraverTypes.h"
+#include "groebner/ReductionTree.h"
 
 namespace _4ti2_
 {
@@ -80,7 +81,8 @@ private:
 			    const VectorArray& basis,
 			    const VectorArray& lifted_basis);
 
-    void createNormOL (); // Create the norm overlay from scratch
+    void createNormOL (); ///< Create the norm overlay from scratch
+    void createRedTree (); ///< Create the reduction tree from scratch
 
     void check_sizes();
 
@@ -88,6 +90,7 @@ private:
     VectorArray *m_data;
     
     NormOL m_normOL; ///< Norm overlay
+    ReductionTree m_redTree;
 
     std::vector<Vector> m_data2; // Dummy to satisfy the iterators
 //    Size size;
@@ -118,6 +121,14 @@ bool
 GraverVectorsNaive::has_vectors_with_norm (IntegerType n) {
     return !(m_normOL.find(n) == m_normOL.end());
 }
+
+inline
+bool 
+GraverVectorsNaive::is_reducible (const Vector& v) const {
+    return m_redTree.isReducible (v);
+}
+
+
 
 } // namespace _4ti2_
 

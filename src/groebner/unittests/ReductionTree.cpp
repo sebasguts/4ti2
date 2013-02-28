@@ -63,4 +63,20 @@ TEST_F(ReductionTreeTest, zero_in_reduction) {
     EXPECT_FALSE(T2.isReducible(x));
 }
 
-
+TEST_F(ReductionTreeTest, fromBugs) {
+    Vector v1 (3,0);
+    Vector v2 (3,0);
+    Vector v3 (3,0);
+    Vector v4 (3,0);
+    v1[0]=1; v1[1]= 1; v1[2]= -1 ;
+    v1[0]=1; v2[1]=-1; v2[2]= -1 ;
+    v1[0]=2; v3[1]= 0; v3[2]= -2 ;
+    v1[0]=0; v4[1]= 2; v4[2]=  0 ;
+    T1.insert(v1);
+    T1.insert(v2);
+    T1.insert(v3);
+    T1.insert(v4);
+    Vector t (3,0);
+    t[0]=0;t[1]=3;t[2]=0;
+    EXPECT_TRUE(T1.isReducible(t));
+}

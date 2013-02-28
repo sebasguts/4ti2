@@ -42,6 +42,7 @@ GraverVectorsNaive::GraverVectorsNaive (const VectorArray& va){
     m_data = new VectorArray (va);
     // size = m_data->get_size();
     createNormOL();
+    createRedTree();
 };
     
 GraverVectorsNaive::~GraverVectorsNaive() {
@@ -83,9 +84,7 @@ void printMark () {
 void 
 GraverVectorsNaive::insert (Vector&& v) {
     IntegerType norm = v.norm(m_data->get_size()-1);
-    // Warning, we should not construct a GraverVector from v now
-    // since the following move will change the adress of what we are
-    // attempting to store.  :( This is a design error. (Todo)
+    m_redTree.insert (v);
     m_data->insert(std::move (v));
     GraverVector g ( & (*m_data)[m_data->get_number()-1] );
     auto it = m_normOL.find(norm);
@@ -117,6 +116,7 @@ GraverVectorsNaive::insert (VectorArray&& va) {
     check_sizes();
 }
 
+#if 0
 bool
 GraverVectorsNaive::is_reducible(const Vector& v) const {
 //    int hits = 0;
@@ -136,6 +136,7 @@ GraverVectorsNaive::is_reducible(const Vector& v) const {
 //    std::cout << "Number of hits in this reduction: " << hits << std::endl;
     return false;
 }
+#endif
 
 
 /** 
@@ -215,7 +216,16 @@ GraverVectorsNaive:: lift (const VectorArray& lifted_basis)
     delete basis_transposed;
     delete m_data;
     m_data = result;
+    // Todo: Do better here, those structures can be lifted too!
     createNormOL();
+    createRedTree(); 
+}
+
+void
+GraverVectorsNaive::createRedTree() {
+    m_redTree.clear();
+    for (int i = 0; i < m_data->get_number(); i++)
+	m_redTree.insert( (*m_data)[i] );
 }
 
 void

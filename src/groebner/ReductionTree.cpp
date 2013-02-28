@@ -60,35 +60,39 @@ ReductionTree::insert_with_offset (const Vector& v, const int offset) {
 
 bool 
 ReductionTree::isReducible (const Vector& v) const {
+    // std::cout << "Running a reduction \n";
     return isReducible_with_offset (v, 0);
 }
 
 bool 
 ReductionTree::isReducible_with_offset (const Vector& v, const int offset) const {
-    // std::cout << "in reduction with offset " << offset << " and component " << v[0] << std::endl;
+//    std::cout << "in reduction with offset " << offset << " and component " << v[offset] << std::endl;
+//    std::cout << "Available branches: ";
+//    for (auto it = m_branches.begin(); it != m_branches.end(); it++) {
+//	std::cout << it->first << " ";
+//    }
+//    std::cout <<"\n";
     if (v[offset] == 0) {
 	// we can only recurse on the zero branch:
 	auto loc = m_branches.find( 0 );
 	if (loc == m_branches.end())
 	    return false;
-	else 
-	    return loc->second.isReducible_with_offset (v, offset+1);
+	else
+	    if (offset == v.get_size()-1)
+		return true;
+	    else
+		return loc->second.isReducible_with_offset (v, offset+1);
     }
-     else { // v[offset] != 0
+    else { // v[offset] != 0
  	IntegerType lower = v[offset] < 0 ? v[offset] : 0;
  	IntegerType upper = v[offset] > 0 ? v[offset] : 0;
  	// We find the first element that is larger than or equal to the
  	// lower bound, and then ask if it is smaller than or equal to the
  	// upper bound:
- 	// std::cout << "Available branches: ";
- 	// for (auto it = m_branches.begin(); it != m_branches.end(); it++) {
- 	//     std::cout << it->first << " ";
- 	// }
- 	// std::cout <<"\n";
  	auto it = m_branches.lower_bound(lower);
  	// If it points to the end now, then we are done anyway:
  	if (it == m_branches.end()) {
- 	    // std::cout << "Nothing beyond " << lower << "found. Not reducible\n";
+	    // std::cout << "Nothing beyond " << lower << "found. Not reducible\n";
  	    return false;
  	}
  	if (offset == v.get_size()-1) {
@@ -103,7 +107,7 @@ ReductionTree::isReducible_with_offset (const Vector& v, const int offset) const
  		if (it->second.isReducible_with_offset(v, offset+1))
  		    return true;
  	    }
- 	    // std::cout << "Key not found, breaking reduction with false.\n";
+	    // std::cout << "Key not found, breaking reduction with false.\n";
  	    return false;
  	}
      } // v[offset] != 0
