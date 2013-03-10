@@ -353,12 +353,12 @@ GraverComputeState::graverJob (const VecVecP& Gr, const VecVecP& Gs) const
 	    {
 		// Todo: 'Quickcheck'
 		Vector sum = *Gr[i].v + *Gs[j].v;
-		// std::cout << "I decided to check the sum " << *Gr[i].v << " + " << *Gs[j].v << "=" << sum << "\n" ;
+		std::cout << "I decided to check the sum " << *Gr[i].v << " + " << *Gs[j].v << "=" << sum << "\n" ;
 		if (m_graverVectors->is_reducible (sum)) {
-		    // std::cout << "oops, was reducible... \n";
+		    std::cout << "oops, was reducible... \n";
 		}
 		else {
-		    // std::cout << "great, not reducible ! \n";
+		    std::cout << "great, not reducible ! \n";
 		    result.insert(std::move(sum));
 		}
 		// result->insert (new Vector (Gr[i] + Gs[j]));
