@@ -28,8 +28,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include "groebner/GraverComputeState.h"
 #include "groebner/GraverTypes.h"
-#include "groebner/GraverVectors.h"
-#include "groebner/GraverVectorsNaive.h"
+#include "groebner/GraverVectorsWithFilter.h"
 #include "groebner/Vector.h"
 #include "groebner/VectorStream.h"
 #include "groebner/VectorArray.h"
@@ -143,8 +142,8 @@ GraverComputeState::liftGraverProperty () {
     while (current_norm < 2*max_norm) {
 	current_norm++;
 	std::cout << "Now doing norm: "<< current_norm << "\n";
-	// std::vector < std::future < VectorArray > > m_futures;
-	std::vector < VectorArray > m_futures;
+	std::vector < std::future < VectorArray > > m_futures;
+	// std::vector < VectorArray > m_futures;
 	// find lowest norm jobs:
 	NPvector lowest_norm_jobs;
 	std::copy_if (jobs.begin(),
@@ -176,18 +175,18 @@ GraverComputeState::liftGraverProperty () {
 	    // Check if there are vectors with this norm:
 	    if ( m_graverVectors->has_vectors_with_norm( it->first ) &&
 		 m_graverVectors->has_vectors_with_norm( it->second )){
-		m_futures.push_back ( graverJob (m_graverVectors->get_vectors(it->first), m_graverVectors->get_vectors(it->second)));
+		// m_futures.push_back ( graverJob (m_graverVectors->get_vectors(it->first), m_graverVectors->get_vectors(it->second)));
 		// Remarks: 
 		// - the std::cref wrappers are needed to prevent copy on pass (see http://stackoverflow.com/questions/14851163/why-does-stdasync-copy-its-const-arguments)
 		// - the launch directive can be modified to start more or less threads, having no directive lets the runtime code decicde
 //		try {
-//		    std::future < VectorArray > fut = std::async(
-//			std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
-//			&GraverComputeState::graverJob,
-//			this,
-//			std::cref (m_graverVectors->get_vectors(it->first)),
-//			std::cref (m_graverVectors->get_vectors(it->second)));
-//		    m_futures.push_back (std::move(fut));
+		std::future < VectorArray > fut = std::async(
+		    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
+		    &GraverComputeState::graverJob2,
+		    this,
+		    std::cref (m_graverVectors->get_filter(it->first)),
+		    std::cref (m_graverVectors->get_filter(it->second)));
+		m_futures.push_back (std::move(fut));
 //		}
 //		catch (std::system_error e) {
 //		    std::cout << "Can't create threads :(, exiting.\n";
@@ -198,14 +197,14 @@ GraverComputeState::liftGraverProperty () {
 	    } // if there are pairs of vectors in this job
 	} // for over lowest_degree_jobs
 	// Synchronize:
-// 	std::cout << "Waiting for sync ... ";
-// 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
-// 	    it->wait();
-// 	std::cout << "Done.\n";
+ 	std::cout << "Waiting for sync ... ";
+ 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+ 	    it->wait();
+ 	std::cout << "Done.\n";
 	// Retrieve results
 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it) {
-	    // VectorArray res = it->get();
-	    VectorArray res = std::move(*it);
+	    VectorArray res = it->get();
+	    // VectorArray res = std::move(*it);
 	    if (res.get_number() == 0) // nothing new
 		continue;
 	    std::cout << "Current norm: " << current_norm << "\n";
@@ -362,6 +361,46 @@ GraverComputeState::graverJob (const VecVecP& Gr, const VecVecP& Gs) const
 		    result.insert(std::move(sum));
 		}
 		// result->insert (new Vector (Gr[i] + Gs[j]));
+	    }
+	}
+    }
+    std::cout << " ... Done.\n";
+    return result;
+}
+
+
+VectorArray
+GraverComputeState::graverJob2 (const GraverFilter& Gr, const GraverFilter& Gs) const
+{
+    VectorArray result (0,(Gr.begin()->second)[0].v->get_size());
+    for (auto it = Gr.begin(); it != Gr.end(); it++ ) {
+	// TODO: What if Gr == Gs?
+	for (auto matching = Gs.begin(); matching != Gs.end(); matching++) {
+	    if (!  ( BitSet::set_disjoint (matching->first.first , it->first.second ) &&
+		     BitSet::set_disjoint (matching->first.second, it->first.first  ) 
+		    ))
+		continue;
+	    for (uint i = 0; i < it->second.size(); i++) {
+		uint j = 0;
+		if (&Gs == &Gr) j = i+1;
+		for (; j < matching->second.size(); j++) {
+		    std::cout << "On: " << *it->second[i].v << " + " << *matching->second[j].v << "\n" ;
+		    // Check for sign inconsistency on the last component 
+		    if (it->second[i].last_entry() <= 0 && matching->second[j].last_entry() <= 0 )
+			continue;
+		    if (it->second[i].last_entry() >= 0 && matching->second[j].last_entry() >= 0 )
+			continue;
+		    // Todo: 'Quickcheck'
+		    Vector sum = *it->second[i].v + *matching->second[j].v;
+		    std::cout << "I decided to check the sum " << *it->second[i].v << " + " << *matching->second[j].v << "=" << sum << "\n" ;
+		    if (m_graverVectors->is_reducible (sum)) {
+			std::cout << "oops, was reducible... \n";
+		    }		    
+		    else {
+			std::cout << "great, not reducible ! \n";
+			result.insert(std::move(sum));
+		    }
+		}
 	    }
 	}
     }

@@ -44,12 +44,6 @@ public:
     GraverVectors (const VectorArray& va); ///< Copy a VectorArray
     ~GraverVectors();
 
-    // Iterators to access the vectors
-    virtual GraverVectorsIterator begin () = 0;
-    virtual GraverVectorsIterator end () = 0;
-    virtual GraverVectorsIterator begin (IntegerType norm) = 0; ///< Access by norm on first n-1 components
-    virtual GraverVectorsIterator end (IntegerType norm) = 0;  ///< Access by norm on first n-1 components
-
     virtual void addNegatives () = 0;  ///<  Insert the negative for each vector (if not already present)
     virtual void removeNegatives (bool lexicographic = true) = 0; ///< Keep only v or -v for each vector
 
@@ -60,6 +54,10 @@ public:
     virtual IntegerType get_max_norm() = 0; // only on the first n-1 elements
 
     virtual VecVecP& get_vectors(IntegerType n) = 0;
+
+    // Access by norm and positive and negative support
+    virtual VecVecP& get_vectors(IntegerType n, std::pair <LongDenseIndexSet, LongDenseIndexSet>) = 0;
+
     virtual bool has_vectors_with_norm (IntegerType n) = 0;
 
     virtual bool is_reducible (const Vector& v) const = 0;
@@ -70,8 +68,6 @@ public:
     virtual void insert (VectorArray&& va) = 0;
 
     virtual void lift (const VectorArray& lifted_basis) = 0; ///< Lift to next dimension
-
-// friend class GraverVectorsIterator;
 };
 
 } // namespace _4ti2_

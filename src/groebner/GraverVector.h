@@ -93,6 +93,8 @@ GraverVector::is_applicable (const GraverVector& other) const {
     const Size size = v->get_size();
     BitSet n (neg);
     BitSet p (pos);
+    // This one is wrong now since pos and neg store only n-1 bits!
+    assert(1);
     n.flip (size-1);
     p.flip (size-1);
     return ( BitSet::set_disjoint (n, other.pos) &&

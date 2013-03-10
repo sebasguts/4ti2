@@ -58,7 +58,7 @@ AM_CXXFLAGS += -DNDEBUG
 # Uncomment the next line for debugging.
 # AM_CXXFLAGS += -ggdb
 # Uncomment the next line for profiling.
-AM_CXXFLAGS += -pg
+# AM_CXXFLAGS += -pg
 
 lib4ti2sources =				\
 	4ti2API.cpp				\
@@ -95,6 +95,7 @@ lib4ti2sources =				\
 	GraverVector.cpp			\
 	GraverVectors.cpp			\
 	GraverVectorsNaive.cpp			\
+	GraverVectorsWithFilter.cpp		\
 	GroebnerBasis.cpp			\
 	HermiteAlgorithm.cpp			\
 	HybridGenSet.cpp			\
@@ -181,6 +182,7 @@ groebnerinclude_HEADERS =			\
 	GraverVector.h				\
 	GraverVectors.h				\
 	GraverVectorsNaive.h			\
+	GraverVectorsWithFilter.h		\
 	GroebnerBasis.h				\
 	HermiteAlgorithm.h			\
 	HybridGenSet.h				\
