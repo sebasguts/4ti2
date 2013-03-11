@@ -27,6 +27,7 @@ testMain_SOURCES = \
 	GraverComputeState.cpp \
 	GraverVectors.cpp \
 	GraverVector.cpp \
+	LatticeBasis.cpp \
 	ParallelGraver.cpp \
 	ReductionTree.cpp \
 	Vector.cpp
