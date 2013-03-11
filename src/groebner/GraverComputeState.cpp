@@ -211,8 +211,8 @@ GraverComputeState::liftGraverProperty () {
 	    for (int j = 0; j<res.get_number(); j++){
 		// This reducibility test is an easy way to get rid of duplicates
 		if (! m_graverVectors->is_reducible(res[j])) {
-			m_graverVectors->insert(std::move(res[j]));
-		    }
+		    m_graverVectors->insert(std::move(res[j]));
+		}
 	    }
 	    // std::cout << "and now there are: " << m_graverVectors->get_number() << std::endl;
 	}
@@ -379,15 +379,18 @@ GraverComputeState::graverJob2 (const GraverFilter& Gr, const GraverFilter& Gs) 
 {
     VectorArray result (0,(Gr.begin()->second)[0].v->get_size());
     for (auto it = Gr.begin(); it != Gr.end(); it++ ) {
-	for (auto matching = Gs.begin(); matching != Gs.end(); matching++) {
+	auto matching = Gs.begin();
+	if (&Gs == &Gr) {
+	    // scroll forward to avoid duplicates
+	    std::advance (matching, std::distance (Gr.begin(), it));
+	}
+	for (; matching != Gs.end(); matching++) {
 	    if (!  ( BitSet::set_disjoint (matching->first.first , it->first.second ) &&
 		     BitSet::set_disjoint (matching->first.second, it->first.first  ) 
 		    ))
 		continue;
 	    for (uint i = 0; i < it->second.size(); i++) {
-		uint j = 0;
-		if (&(it->second) == &(matching->second)) j = i+1;
-		for (; j < matching->second.size(); j++) {
+		for (uint j = 0; j < matching->second.size(); j++) {
 		    // std::cout << "On: " << *it->second[i].v << " + " << *matching->second[j].v << "\n" ;
 		    // Check for sign inconsistency on the last component 
 		    if (it->second[i].last_entry() <= 0 && matching->second[j].last_entry() <= 0 )
@@ -396,12 +399,12 @@ GraverComputeState::graverJob2 (const GraverFilter& Gr, const GraverFilter& Gs) 
 			continue;
 		    // Todo: 'Quickcheck'
 		    Vector sum = *it->second[i].v + *matching->second[j].v;
-		    // std::cout << "I decided to check the sum " << *it->second[i].v << " + " << *matching->second[j].v << "=" << sum << "\n" ;
+		    std::cout << "I decided to check the sum " << *it->second[i].v << " + " << *matching->second[j].v << "=" << sum << "\n" ;
 		    if (m_graverVectors->is_reducible (sum)) {
-			// std::cout << "oops, was reducible... \n";
+			std::cout << "was reducible... \n";
 		    }		    
 		    else {
-			// std::cout << "great, not reducible ! \n";
+			std::cout << "great, not reducible ! \n";
 			result.insert(std::move(sum));
 		    }
 		}
