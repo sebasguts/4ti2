@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <vector>
 #include <iostream>
 
+#include "groebner/BitSetStream.h"
 #include "groebner/GraverComputeState.h"
 #include "groebner/GraverTypes.h"
 #include "groebner/GraverVectorsWithFilter.h"
@@ -180,6 +181,7 @@ GraverComputeState::liftGraverProperty () {
 		// - the std::cref wrappers are needed to prevent copy on pass (see http://stackoverflow.com/questions/14851163/why-does-stdasync-copy-its-const-arguments)
 		// - the launch directive can be modified to start more or less threads, having no directive lets the runtime code decicde
 //		try {
+		std::cout << "Starting job asynchronously \n";
 		std::future < VectorArray > fut = std::async(
 		    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
 		    &GraverComputeState::graverJob2,
@@ -215,7 +217,12 @@ GraverComputeState::liftGraverProperty () {
 	    }
 	    std::cout << "I'm going to add new vectors. So far I got " << m_graverVectors->get_number() << std::endl;
 	    // Store new Graver elements
-	    m_graverVectors->insert(std::move(res));
+	    for (int j = 0; j<res.get_number(); j++){
+		// This reducibility test is an easy way to get rid of duplicates
+		if (! m_graverVectors->is_reducible(res[j])) {
+			m_graverVectors->insert(std::move(res[j]));
+		    }
+	    }
 	    std::cout << "and now there are: " << m_graverVectors->get_number() << std::endl;
 	}
 	// Clean up futures:
@@ -368,13 +375,15 @@ GraverComputeState::graverJob (const VecVecP& Gr, const VecVecP& Gs) const
     return result;
 }
 
+// void dumpPattern (BitSet bs){
+//     std::cout << bs << "\n";
+// }
 
 VectorArray
 GraverComputeState::graverJob2 (const GraverFilter& Gr, const GraverFilter& Gs) const
 {
     VectorArray result (0,(Gr.begin()->second)[0].v->get_size());
     for (auto it = Gr.begin(); it != Gr.end(); it++ ) {
-	// TODO: What if Gr == Gs?
 	for (auto matching = Gs.begin(); matching != Gs.end(); matching++) {
 	    if (!  ( BitSet::set_disjoint (matching->first.first , it->first.second ) &&
 		     BitSet::set_disjoint (matching->first.second, it->first.first  ) 
@@ -382,9 +391,9 @@ GraverComputeState::graverJob2 (const GraverFilter& Gr, const GraverFilter& Gs) 
 		continue;
 	    for (uint i = 0; i < it->second.size(); i++) {
 		uint j = 0;
-		if (&Gs == &Gr) j = i+1;
+		if (&(it->second) == &(matching->second)) j = i+1;
 		for (; j < matching->second.size(); j++) {
-		    std::cout << "On: " << *it->second[i].v << " + " << *matching->second[j].v << "\n" ;
+		    // std::cout << "On: " << *it->second[i].v << " + " << *matching->second[j].v << "\n" ;
 		    // Check for sign inconsistency on the last component 
 		    if (it->second[i].last_entry() <= 0 && matching->second[j].last_entry() <= 0 )
 			continue;
@@ -392,12 +401,12 @@ GraverComputeState::graverJob2 (const GraverFilter& Gr, const GraverFilter& Gs) 
 			continue;
 		    // Todo: 'Quickcheck'
 		    Vector sum = *it->second[i].v + *matching->second[j].v;
-		    std::cout << "I decided to check the sum " << *it->second[i].v << " + " << *matching->second[j].v << "=" << sum << "\n" ;
+		    // std::cout << "I decided to check the sum " << *it->second[i].v << " + " << *matching->second[j].v << "=" << sum << "\n" ;
 		    if (m_graverVectors->is_reducible (sum)) {
-			std::cout << "oops, was reducible... \n";
+			// std::cout << "oops, was reducible... \n";
 		    }		    
 		    else {
-			std::cout << "great, not reducible ! \n";
+			// std::cout << "great, not reducible ! \n";
 			result.insert(std::move(sum));
 		    }
 		}

@@ -171,7 +171,7 @@ GraverVectorsWithFilter::lift_with_basis(
 }
 
 void
-GraverVectorsWithFilter:: lift (const VectorArray& lifted_basis)
+GraverVectorsWithFilter::lift (const VectorArray& lifted_basis)
 {
     // This is a trick.  Since zsolve solves Ax = b, we need to
     // transpose the basis to get a coefficient vector (remember,
@@ -215,7 +215,9 @@ void dumpGraverFilter (const GraverFilter& gf) {
 void 
 GraverVectorsWithFilter::dumpFilters (){
     for (auto it = m_normFilter.begin(); it != m_normFilter.end(); ++it){
+	std::cout << "Dumping filter for norm " << it->first << "\n";
 	dumpGraverFilter(it->second);
+	std::cout << "---------------------\n";
     }
 }
 
