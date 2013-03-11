@@ -399,12 +399,12 @@ GraverComputeState::graverJob2 (const GraverFilter& Gr, const GraverFilter& Gs) 
 			continue;
 		    // Todo: 'Quickcheck'
 		    Vector sum = *it->second[i].v + *matching->second[j].v;
-		    std::cout << "I decided to check the sum " << *it->second[i].v << " + " << *matching->second[j].v << "=" << sum << "\n" ;
+		    // std::cout << "I decided to check the sum " << *it->second[i].v << " + " << *matching->second[j].v << "=" << sum << "\n" ;
 		    if (m_graverVectors->is_reducible (sum)) {
-			std::cout << "was reducible... \n";
+			// std::cout << "was reducible... \n";
 		    }		    
 		    else {
-			std::cout << "great, not reducible ! \n";
+			// std::cout << "great, not reducible ! \n";
 			result.insert(std::move(sum));
 		    }
 		}
