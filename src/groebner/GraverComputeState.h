@@ -42,7 +42,7 @@ public:
     ~GraverComputeState();
 
     VectorArray get_vectors () {return m_graverVectors->get_vectors();}; ///< Current state of computation
-    VectorArray get_vectors_without_negatives (); ///< Get vectors without duplicating negatives
+    VectorArray get_vectors_without_negatives_destructive (); ///< Get vectors without duplicating negatives
 
     void projectToRank (); ///< Project down to rank of the problem
     void MakeGraverBasisWithZSolve ();

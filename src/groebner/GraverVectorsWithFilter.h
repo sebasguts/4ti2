@@ -51,6 +51,8 @@ public:
     void addNegatives ();  ///<  Insert the negative for each vector (if not already present)
     void removeNegatives (bool lexicographic = true); ///< Keep only v or -v for each vector
 
+    VectorArray get_vectors_without_negatives_destructive();
+
     Size get_size(); ///< Dimension aka length aka size
     Size get_number() { return m_data->get_number();}; ///< Number of Vectors stored
 

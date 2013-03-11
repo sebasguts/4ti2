@@ -75,21 +75,8 @@ is_below (const Vector& v1, const Vector& v2) {
 }
 
 VectorArray
-GraverComputeState::get_vectors_without_negatives () {
-    VectorArray v = get_vectors();
-    VectorArray result (0,v.get_size());
-    for (int i = 0; i < v.get_number(); i++) {
-	bool has_negative = false;
-	for (int j = i+1; j < v.get_number(); j++) {
-	    if ( is_below ( -(v[i]), v[j] ) ) {
-		has_negative = true;
-		break;
-	    }
-	}
-	if (!has_negative)
-	    (v[i] <= -v[i]) ? result.insert( std::move(-v[i]) ) : result.insert(std::move(v[i]));
-    }
-    return result;
+GraverComputeState::get_vectors_without_negatives_destructive () {
+    return m_graverVectors->get_vectors_without_negatives_destructive();
 }
 
 void
@@ -158,20 +145,20 @@ GraverComputeState::liftGraverProperty () {
 				       [current_norm](const NP& np) -> bool 
 				       { return (np.sum == current_norm);} );
 	jobs.erase (new_end, jobs.end());
-	std::cout << "Lowest norm jobs : ";
-	for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
-	    std::cout << "(" << it->first << "," << it->second << "),";
-	}
-	std::cout << "\n";
-	std::cout << "Other jobs: ";
-	for (auto it = jobs.begin(); it != jobs.end(); it++) {
-	    std::cout << "(" << it->first << "," << it->second << "),";
-	}
-	std::cout << "\n";
-	if (lowest_norm_jobs.size() == 0) {
-	    std::cout << "No jobs of norm "<< current_norm << "\n";
-	}
-	// Do lowest norm jobs:
+	// std::cout << "Lowest norm jobs : ";
+	// for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
+	//     std::cout << "(" << it->first << "," << it->second << "),";
+	// }
+	// std::cout << "\n";
+	// std::cout << "Other jobs: ";
+	// for (auto it = jobs.begin(); it != jobs.end(); it++) {
+	//     std::cout << "(" << it->first << "," << it->second << "),";
+	// }
+	// std::cout << "\n";
+	// if (lowest_norm_jobs.size() == 0) {
+	//     std::cout << "No jobs of norm "<< current_norm << "\n";
+	// }
+	// // Do lowest norm jobs:
 	for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
 	    std::cout << "Doing job :" << it->first << "," << it->second << "\n";
 	    // Check if there are vectors with this norm:
@@ -219,7 +206,7 @@ GraverComputeState::liftGraverProperty () {
 		std::cout << "New norm bound : " << current_norm << "\n";
 		max_norm = current_norm;
 	    }
-	    std::cout << "I'm going to add new vectors. So far I got " << m_graverVectors->get_number() << std::endl;
+	    // std::cout << "I'm going to add new vectors. So far I got " << m_graverVectors->get_number() << std::endl;
 	    // Store new Graver elements
 	    for (int j = 0; j<res.get_number(); j++){
 		// This reducibility test is an easy way to get rid of duplicates
@@ -227,7 +214,7 @@ GraverComputeState::liftGraverProperty () {
 			m_graverVectors->insert(std::move(res[j]));
 		    }
 	    }
-	    std::cout << "and now there are: " << m_graverVectors->get_number() << std::endl;
+	    // std::cout << "and now there are: " << m_graverVectors->get_number() << std::endl;
 	}
 	// Clean up futures:
 	m_futures.clear();
@@ -236,19 +223,21 @@ GraverComputeState::liftGraverProperty () {
 	// Add new jobs for each norm pair (i, current_norm), i=
 	// 1..current_norm such that there are moves in the
 	// respective degrees.
-	std::cout << "Current Jobs overview: \n";
-	for (auto it=jobs.begin(); it != jobs.end(); it++)
-	    std::cout <<"("<<it->first<<","<<it->second<<"), ";
-	std::cout << std::endl;
-	std::cout << "Current size of Graver basis: " << m_graverVectors->get_number() << "\n";
+	// std::cout << "Current Jobs overview: \n";
+// 	for (auto it=jobs.begin(); it != jobs.end(); it++) {
+// 	    std::cout <<"("<<it->first<<","<<it->second<<"), ";
+// 	}
+	// std::cout << std::endl;
+	// std::cout << "Current size of Graver basis: " << m_graverVectors->get_number() << "\n";
 	if (m_graverVectors->has_vectors_with_norm(current_norm))
 	    for (IntegerType i = 1; i <= current_norm; i++)
 		if (m_graverVectors->has_vectors_with_norm(i))
 		    jobs.push_back ( NP (i, current_norm));
 	// Keep jobs sorted according to total norm
-	std::cout << "Starting sort... ";
+	// std::cout << "Sorting remaining jobs ... ";
+	// std::cout.flush()
 	std::sort(jobs.begin(), jobs.end());
-	std::cout << "done!\n";
+	// std::cout << "done!\n";
     }; // while (current_norm < 2*max_norm)
 }
 
@@ -419,6 +408,6 @@ GraverComputeState::graverJob2 (const GraverFilter& Gr, const GraverFilter& Gs) 
 	    }
 	}
     }
-    std::cout << " ... Done.\n";
+    // std::cout << " ... Done.\n";
     return result;
 }

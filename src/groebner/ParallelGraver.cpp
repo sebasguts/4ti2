@@ -114,7 +114,7 @@ ParallelGraver::compute(
     // Undo the permutation
     std::cout << "removing negatives.... ";
     std::cout.flush();
-    basis = current.get_vectors_without_negatives();
+    basis = current.get_vectors_without_negatives_destructive();
     std::cout << "done\n";
     basis.permute(P);
     

@@ -75,6 +75,27 @@ GraverVectorsWithFilter::removeNegatives (bool lexicographic) {
     // Fix me
 }
 
+inline
+bool first_entry_non_negative (const Vector& v){
+    int i = 0;
+    while (v[i] == 0 && i < v.get_size())
+	i++;
+    if (v[i] < 0) return false;
+    return true;
+}
+
+VectorArray 
+GraverVectorsWithFilter::get_vectors_without_negatives_destructive() {
+    // Caveat: Assumes that m_data contains a negative for each vector!
+    // Steals Vectors from the data array
+    VectorArray result (0, m_data->get_size());
+    for (int i = 0; i< m_data->get_size(); i++ ){
+	if (first_entry_non_negative ((*m_data)[i]))
+	    result.insert (std::move ( (*m_data)[i] ));
+    }
+    return result;
+}
+
 Size 
 GraverVectorsWithFilter::get_size(){
     return m_data->get_size();
