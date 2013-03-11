@@ -207,13 +207,22 @@ GraverComputeState::liftGraverProperty () {
 		max_norm = current_norm;
 	    }
 	    // std::cout << "I'm going to add new vectors. So far I got " << m_graverVectors->get_number() << std::endl;
-	    // Store new Graver elements
+
+	    // Storing new Graver elements: No newly created vector is
+	    // redundant, but there may be duplicates among the
+	    // vectors retrived from the different jobs.  To remove
+	    // them, we build a second reduction tree only for new
+	    // vectors.
+	    ReductionTree *R = new ReductionTree;
+	    std::cout << "Need to run " << res.get_number() << " reduction tests :(" << std::endl;
 	    for (int j = 0; j<res.get_number(); j++){
-		// This reducibility test is an easy way to get rid of duplicates
-		if (! m_graverVectors->is_reducible(res[j])) {
+		if (! R->isReducible(res[j])) {
+		    R->insert (res[j]);
 		    m_graverVectors->insert(std::move(res[j]));
 		}
 	    }
+	    delete R;
+	    std::cout << "Done with that" << std::endl;
 	    // std::cout << "and now there are: " << m_graverVectors->get_number() << std::endl;
 	}
 	// Clean up futures:
