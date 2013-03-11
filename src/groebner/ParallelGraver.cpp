@@ -80,19 +80,19 @@ ParallelGraver::compute(
     // rank many columns.  P stores the permutation which undoes the
     // shuffling in the end.
     Permutation P = permute_full_rank_to_left (basis);
-    std::cout << "Permuted basis \n" << basis;
+    // std::cout << "Permuted basis \n" << basis;
 
     // Create GraverComputeState.
     GraverComputeState current (basis);  // give lattice basis for initialization
 
     // Compute a Graver basis of the smallest projection with zsolve.
     current.projectToRank();
-    *out << current.get_vectors() << std::endl;
+    // *out << current.get_vectors() << std::endl;
     current.MakeGraverBasisWithZSolve (); // Also adds the negatives!
     
-    *out << "Graver basis of the projected lattice: \n";
-    *out << current.get_vectors();
-    *out << "\n";
+//    *out << "Graver basis of the projected lattice: \n";
+//    *out << current.get_vectors();
+//    *out << "\n";
 
     // The big lifting loop. varindex stores the index of the next
     // variable in machine counting.  For instance if we have a kx3
@@ -104,18 +104,21 @@ ParallelGraver::compute(
 
 	current.liftOneStep ();
 
- 	*out << "Graver basis property on rank many components:\n";
- 	*out << current.get_vectors() << std::endl;
- 	*out << "\n";
+ 	// *out << "Graver basis property on rank many components:\n";
+  	// *out << current.get_vectors() << std::endl;
+ 	// *out << "\n";
 
 	current.liftGraverProperty ();
     } // End of the big variable lifting loop
 
     // Undo the permutation
+    std::cout << "removing negatives.... ";
+    std::cout.flush();
     basis = current.get_vectors_without_negatives();
+    std::cout << "done\n";
     basis.permute(P);
     
-    std::cout << " done\n";
+    std::cout << "all done\n";
     basis.sort();
 } // compute()
 

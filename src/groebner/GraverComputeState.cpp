@@ -41,7 +41,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 using namespace _4ti2_;
 
 GraverComputeState::GraverComputeState (const VectorArray& lb){
-    m_graverVectors = new GraVec (lb);
+    // the false call saves creation of aux data on the first call.
+    m_graverVectors = new GraVec (lb, false);
     m_latticeBasis = new VectorArray (lb);
     m_rank = lb.get_number(); // Trust that we got an actual basis!
 
@@ -95,7 +96,7 @@ void
 GraverComputeState::projectToRank () {
     std::cout << "In projectToRank\n";
     delete m_graverVectors;
-    m_graverVectors = new GraVec (*m_projected_lattice_bases[m_rank]);
+    m_graverVectors = new GraVec (*m_projected_lattice_bases[m_rank], false);
 }
 
 void
@@ -176,12 +177,14 @@ GraverComputeState::liftGraverProperty () {
 	    // Check if there are vectors with this norm:
 	    if ( m_graverVectors->has_vectors_with_norm( it->first ) &&
 		 m_graverVectors->has_vectors_with_norm( it->second )){
-		// m_futures.push_back ( graverJob (m_graverVectors->get_vectors(it->first), m_graverVectors->get_vectors(it->second)));
+		// Synchronous version:
+		// m_futures.push_back ( graverJob2 (m_graverVectors->get_filter(it->first), m_graverVectors->get_filter(it->second)));
+		// Async version: 
 		// Remarks: 
 		// - the std::cref wrappers are needed to prevent copy on pass (see http://stackoverflow.com/questions/14851163/why-does-stdasync-copy-its-const-arguments)
 		// - the launch directive can be modified to start more or less threads, having no directive lets the runtime code decicde
 //		try {
-		std::cout << "Starting job asynchronously \n";
+		// std::cout << "Starting job asynchronously \n";
 		std::future < VectorArray > fut = std::async(
 		    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
 		    &GraverComputeState::graverJob2,
@@ -199,10 +202,11 @@ GraverComputeState::liftGraverProperty () {
 	    } // if there are pairs of vectors in this job
 	} // for over lowest_degree_jobs
 	// Synchronize:
- 	std::cout << "Waiting for sync ... ";
- 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
- 	    it->wait();
- 	std::cout << "Done.\n";
+  	std::cout << "Waiting for sync ... ";
+	std::cout.flush();
+  	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+  	    it->wait();
+  	std::cout << "Done.\n";
 	// Retrieve results
 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it) {
 	    VectorArray res = it->get();
@@ -242,7 +246,9 @@ GraverComputeState::liftGraverProperty () {
 		if (m_graverVectors->has_vectors_with_norm(i))
 		    jobs.push_back ( NP (i, current_norm));
 	// Keep jobs sorted according to total norm
+	std::cout << "Starting sort... ";
 	std::sort(jobs.begin(), jobs.end());
+	std::cout << "done!\n";
     }; // while (current_norm < 2*max_norm)
 }
 

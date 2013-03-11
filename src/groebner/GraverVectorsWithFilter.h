@@ -45,7 +45,7 @@ class GraverVectorsWithFilter
 {
 public:
     GraverVectorsWithFilter ();
-    GraverVectorsWithFilter (const VectorArray& va); ///< Copy a VectorArray
+    GraverVectorsWithFilter (const VectorArray& va, bool createAux = true); ///< Copy a VectorArray
     ~GraverVectorsWithFilter();
 
     void addNegatives ();  ///<  Insert the negative for each vector (if not already present)

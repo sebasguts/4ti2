@@ -53,11 +53,12 @@ insertIntoFilter (GraverFilter& filter, const GraverVector& g){
 GraverVectorsWithFilter::GraverVectorsWithFilter () {
 }
 
-GraverVectorsWithFilter::GraverVectorsWithFilter (const VectorArray& va){
+GraverVectorsWithFilter::GraverVectorsWithFilter (const VectorArray& va, bool createAux){
     m_data = new VectorArray (va);
-    // size = m_data->get_size();
-    createNormFilter();
-    createRedTree();
+    if (createAux) {
+	createNormFilter();
+	createRedTree();
+    }
 };
     
 GraverVectorsWithFilter::~GraverVectorsWithFilter() {
@@ -87,7 +88,7 @@ void printMark () {
 void 
 GraverVectorsWithFilter::insert (Vector&& v) {
     IntegerType norm = v.norm(m_data->get_size()-1);
-    std::cout << "Running insert on norm " << norm << "\n";
+    // std::cout << "Running insert on norm " << norm << "\n";
     m_redTree.insert (v);
     m_data->insert(std::move (v));
     GraverVector g ( & (*m_data)[m_data->get_number()-1] );
@@ -107,7 +108,7 @@ GraverVectorsWithFilter::insert (Vector&& v) {
 
 void 
 GraverVectorsWithFilter::insert (VectorArray&& va) {
-    std::cout << "Inserting an array ... \n";
+    // std::cout << "Inserting an array ... \n";
     for (int i = 0; i < va.get_number(); i++){
 	insert (std::move(va[i]));
     }
@@ -197,9 +198,7 @@ GraverVectorsWithFilter::createNormFilter () {
     m_normFilter.clear();
     /// @TODO: Parallelize this computation by splitting the todolist
     for (int i = 0; i < m_data->get_number(); i++){
-	std::cout << (*m_data)[i] << ": ";
 	IntegerType current_norm = (*m_data)[i].norm(m_data->get_size()-1); /// Compute norm of first n-1 entries!
-	std::cout << current_norm << "\n";
 	GraverVector g ( &(*m_data)[i] );
 	auto it = m_normFilter.find(current_norm);
 	if (it == m_normFilter.end()) {
@@ -214,7 +213,7 @@ GraverVectorsWithFilter::createNormFilter () {
 	    insertIntoFilter( it->second, g);
 	}
     }
-    std::cout << "Norm filter created, minimum norm: " << m_normFilter.begin()->first;
-    std::cout << ", maximum norm : " << m_normFilter.rbegin()->first << "\n";
-    dumpFilters();
+    // std::cout << "Norm filter created, minimum norm: " << m_normFilter.begin()->first;
+    // std::cout << ", maximum norm : " << m_normFilter.rbegin()->first << "\n";
+    // dumpFilters();
 }
