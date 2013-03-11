@@ -25,6 +25,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include <vector>
 #include <map>
+#include <unordered_map>
+#include <functional>
 
 #include "groebner/GraverVector.h"
 
@@ -34,6 +36,10 @@ namespace _4ti2_
 typedef std::vector<Vector>::iterator GraverVectorsIterator;
 typedef std::vector < GraverVector > VecVecP;
 typedef std::map < IntegerType, VecVecP > NormOL;   // Type for Norm overlay
+
+typedef std::map < std::pair <BitSet, BitSet>, VecVecP > GraverFilter;
+typedef std::map <IntegerType, GraverFilter > NormToFilter;
+// map from norms to GraverFilters
 
 }; // namespace 4ti2
 

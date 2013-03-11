@@ -42,10 +42,13 @@ GraverVector::fill_supports_and_norm() {
 	    norm -= (*v)[i];
 	}
     }
+// Fill supports only until n-1 for now.
+#if 0 
     if ((*v)[v->get_size()-1] > 0)
 	pos.set(v->get_size()-1);
     if ((*v)[v->get_size()-1] < 0)
 	neg.set(v->get_size()-1);
+#endif 
 }
 
 

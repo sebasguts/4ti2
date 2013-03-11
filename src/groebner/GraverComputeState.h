@@ -26,15 +26,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <vector>
 #include <map>
 
-#include "groebner/GraverVectors.h"
-#include "groebner/GraverVectorsNaive.h"
+#include "groebner/GraverVectorsWithFilter.h"
 #include "groebner/VectorArray.h"
 
 namespace _4ti2_
 {
 
 // Choose your GraverVectors implementation here.
-typedef GraverVectorsNaive GraVec;
+typedef GraverVectorsWithFilter GraVec;
 
 class GraverComputeState
 {
@@ -43,7 +42,7 @@ public:
     ~GraverComputeState();
 
     VectorArray get_vectors () {return m_graverVectors->get_vectors();}; ///< Current state of computation
-    VectorArray get_vectors_without_negatives (); ///< Get vectors without duplicating negatives
+    VectorArray get_vectors_without_negatives_destructive (); ///< Get vectors without duplicating negatives
 
     void projectToRank (); ///< Project down to rank of the problem
     void MakeGraverBasisWithZSolve ();
@@ -59,10 +58,12 @@ private:
     // static bool sign_consistent (const Vector& v1, const Vector& v2, Index stop);
 
     VectorArray graverJob (const VecVecP& Gr,  const VecVecP& Gs) const;
+    // Todo: How to make overloaded function work with std::async?
+    VectorArray graverJob2 (const GraverFilter& Gr,  const GraverFilter& Gs) const;
 
 private:
     VectorArray *m_latticeBasis;
-    GraverVectors *m_graverVectors;
+    GraVec *m_graverVectors;
     std::vector < VectorArray* > m_projected_lattice_bases;
 
     Size m_rank;

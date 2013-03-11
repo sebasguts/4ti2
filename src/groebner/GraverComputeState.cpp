@@ -26,10 +26,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <vector>
 #include <iostream>
 
+#include "groebner/BitSetStream.h"
 #include "groebner/GraverComputeState.h"
 #include "groebner/GraverTypes.h"
-#include "groebner/GraverVectors.h"
-#include "groebner/GraverVectorsNaive.h"
+#include "groebner/GraverVectorsWithFilter.h"
 #include "groebner/Vector.h"
 #include "groebner/VectorStream.h"
 #include "groebner/VectorArray.h"
@@ -41,7 +41,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 using namespace _4ti2_;
 
 GraverComputeState::GraverComputeState (const VectorArray& lb){
-    m_graverVectors = new GraVec (lb);
+    // the false call saves creation of aux data on the first call.
+    m_graverVectors = new GraVec (lb, false);
     m_latticeBasis = new VectorArray (lb);
     m_rank = lb.get_number(); // Trust that we got an actual basis!
 
@@ -74,28 +75,15 @@ is_below (const Vector& v1, const Vector& v2) {
 }
 
 VectorArray
-GraverComputeState::get_vectors_without_negatives () {
-    VectorArray v = get_vectors();
-    VectorArray result (0,v.get_size());
-    for (int i = 0; i < v.get_number(); i++) {
-	bool has_negative = false;
-	for (int j = i+1; j < v.get_number(); j++) {
-	    if ( is_below ( -(v[i]), v[j] ) ) {
-		has_negative = true;
-		break;
-	    }
-	}
-	if (!has_negative)
-	    (v[i] <= -v[i]) ? result.insert( std::move(-v[i]) ) : result.insert(std::move(v[i]));
-    }
-    return result;
+GraverComputeState::get_vectors_without_negatives_destructive () {
+    return m_graverVectors->get_vectors_without_negatives_destructive();
 }
 
 void
 GraverComputeState::projectToRank () {
     std::cout << "In projectToRank\n";
     delete m_graverVectors;
-    m_graverVectors = new GraVec (*m_projected_lattice_bases[m_rank]);
+    m_graverVectors = new GraVec (*m_projected_lattice_bases[m_rank], false);
 }
 
 void
@@ -143,8 +131,8 @@ GraverComputeState::liftGraverProperty () {
     while (current_norm < 2*max_norm) {
 	current_norm++;
 	std::cout << "Now doing norm: "<< current_norm << "\n";
-	// std::vector < std::future < VectorArray > > m_futures;
-	std::vector < VectorArray > m_futures;
+	std::vector < std::future < VectorArray > > m_futures;
+	// std::vector < VectorArray > m_futures;
 	// find lowest norm jobs:
 	NPvector lowest_norm_jobs;
 	std::copy_if (jobs.begin(),
@@ -157,37 +145,40 @@ GraverComputeState::liftGraverProperty () {
 				       [current_norm](const NP& np) -> bool 
 				       { return (np.sum == current_norm);} );
 	jobs.erase (new_end, jobs.end());
-	std::cout << "Lowest norm jobs : ";
-	for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
-	    std::cout << "(" << it->first << "," << it->second << "),";
-	}
-	std::cout << "\n";
-	std::cout << "Other jobs: ";
-	for (auto it = jobs.begin(); it != jobs.end(); it++) {
-	    std::cout << "(" << it->first << "," << it->second << "),";
-	}
-	std::cout << "\n";
-	if (lowest_norm_jobs.size() == 0) {
-	    std::cout << "No jobs of norm "<< current_norm << "\n";
-	}
-	// Do lowest norm jobs:
+	// std::cout << "Lowest norm jobs : ";
+	// for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
+	//     std::cout << "(" << it->first << "," << it->second << "),";
+	// }
+	// std::cout << "\n";
+	// std::cout << "Other jobs: ";
+	// for (auto it = jobs.begin(); it != jobs.end(); it++) {
+	//     std::cout << "(" << it->first << "," << it->second << "),";
+	// }
+	// std::cout << "\n";
+	// if (lowest_norm_jobs.size() == 0) {
+	//     std::cout << "No jobs of norm "<< current_norm << "\n";
+	// }
+	// // Do lowest norm jobs:
 	for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
 	    std::cout << "Doing job :" << it->first << "," << it->second << "\n";
 	    // Check if there are vectors with this norm:
 	    if ( m_graverVectors->has_vectors_with_norm( it->first ) &&
 		 m_graverVectors->has_vectors_with_norm( it->second )){
-		m_futures.push_back ( graverJob (m_graverVectors->get_vectors(it->first), m_graverVectors->get_vectors(it->second)));
+		// Synchronous version:
+		// m_futures.push_back ( graverJob2 (m_graverVectors->get_filter(it->first), m_graverVectors->get_filter(it->second)));
+		// Async version: 
 		// Remarks: 
 		// - the std::cref wrappers are needed to prevent copy on pass (see http://stackoverflow.com/questions/14851163/why-does-stdasync-copy-its-const-arguments)
 		// - the launch directive can be modified to start more or less threads, having no directive lets the runtime code decicde
 //		try {
-//		    std::future < VectorArray > fut = std::async(
-//			std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
-//			&GraverComputeState::graverJob,
-//			this,
-//			std::cref (m_graverVectors->get_vectors(it->first)),
-//			std::cref (m_graverVectors->get_vectors(it->second)));
-//		    m_futures.push_back (std::move(fut));
+		// std::cout << "Starting job asynchronously \n";
+		std::future < VectorArray > fut = std::async(
+		    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
+		    &GraverComputeState::graverJob2,
+		    this,
+		    std::cref (m_graverVectors->get_filter(it->first)),
+		    std::cref (m_graverVectors->get_filter(it->second)));
+		m_futures.push_back (std::move(fut));
 //		}
 //		catch (std::system_error e) {
 //		    std::cout << "Can't create threads :(, exiting.\n";
@@ -198,14 +189,15 @@ GraverComputeState::liftGraverProperty () {
 	    } // if there are pairs of vectors in this job
 	} // for over lowest_degree_jobs
 	// Synchronize:
-// 	std::cout << "Waiting for sync ... ";
-// 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
-// 	    it->wait();
-// 	std::cout << "Done.\n";
+  	std::cout << "Waiting for sync ... ";
+	std::cout.flush();
+  	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+  	    it->wait();
+  	std::cout << "Done.\n";
 	// Retrieve results
 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it) {
-	    // VectorArray res = it->get();
-	    VectorArray res = std::move(*it);
+	    VectorArray res = it->get();
+	    // VectorArray res = std::move(*it);
 	    if (res.get_number() == 0) // nothing new
 		continue;
 	    std::cout << "Current norm: " << current_norm << "\n";
@@ -214,10 +206,24 @@ GraverComputeState::liftGraverProperty () {
 		std::cout << "New norm bound : " << current_norm << "\n";
 		max_norm = current_norm;
 	    }
-	    std::cout << "I'm going to add new vectors. So far I got " << m_graverVectors->get_number() << std::endl;
-	    // Store new Graver elements
-	    m_graverVectors->insert(std::move(res));
-	    std::cout << "and now there are: " << m_graverVectors->get_number() << std::endl;
+	    // std::cout << "I'm going to add new vectors. So far I got " << m_graverVectors->get_number() << std::endl;
+
+	    // Storing new Graver elements: No newly created vector is
+	    // redundant, but there may be duplicates among the
+	    // vectors retrived from the different jobs.  To remove
+	    // them, we build a second reduction tree only for new
+	    // vectors.
+	    ReductionTree *R = new ReductionTree;
+	    std::cout << "Need to run " << res.get_number() << " reduction tests :(" << std::endl;
+	    for (int j = 0; j<res.get_number(); j++){
+		if (! R->isReducible(res[j])) {
+		    R->insert (res[j]);
+		    m_graverVectors->insert(std::move(res[j]));
+		}
+	    }
+	    delete R;
+	    std::cout << "Done with that" << std::endl;
+	    // std::cout << "and now there are: " << m_graverVectors->get_number() << std::endl;
 	}
 	// Clean up futures:
 	m_futures.clear();
@@ -226,17 +232,21 @@ GraverComputeState::liftGraverProperty () {
 	// Add new jobs for each norm pair (i, current_norm), i=
 	// 1..current_norm such that there are moves in the
 	// respective degrees.
-	std::cout << "Current Jobs overview: \n";
-	for (auto it=jobs.begin(); it != jobs.end(); it++)
-	    std::cout <<"("<<it->first<<","<<it->second<<"), ";
-	std::cout << std::endl;
-	std::cout << "Current size of Graver basis: " << m_graverVectors->get_number() << "\n";
+	// std::cout << "Current Jobs overview: \n";
+// 	for (auto it=jobs.begin(); it != jobs.end(); it++) {
+// 	    std::cout <<"("<<it->first<<","<<it->second<<"), ";
+// 	}
+	// std::cout << std::endl;
+	// std::cout << "Current size of Graver basis: " << m_graverVectors->get_number() << "\n";
 	if (m_graverVectors->has_vectors_with_norm(current_norm))
 	    for (IntegerType i = 1; i <= current_norm; i++)
 		if (m_graverVectors->has_vectors_with_norm(i))
 		    jobs.push_back ( NP (i, current_norm));
 	// Keep jobs sorted according to total norm
+	// std::cout << "Sorting remaining jobs ... ";
+	// std::cout.flush()
 	std::sort(jobs.begin(), jobs.end());
+	// std::cout << "done!\n";
     }; // while (current_norm < 2*max_norm)
 }
 
@@ -366,5 +376,50 @@ GraverComputeState::graverJob (const VecVecP& Gr, const VecVecP& Gs) const
 	}
     }
     std::cout << " ... Done.\n";
+    return result;
+}
+
+// void dumpPattern (BitSet bs){
+//     std::cout << bs << "\n";
+// }
+
+VectorArray
+GraverComputeState::graverJob2 (const GraverFilter& Gr, const GraverFilter& Gs) const
+{
+    VectorArray result (0,(Gr.begin()->second)[0].v->get_size());
+    for (auto it = Gr.begin(); it != Gr.end(); it++ ) {
+	auto matching = Gs.begin();
+	if (&Gs == &Gr) {
+	    // scroll forward to avoid duplicates
+	    std::advance (matching, std::distance (Gr.begin(), it));
+	}
+	for (; matching != Gs.end(); matching++) {
+	    if (!  ( BitSet::set_disjoint (matching->first.first , it->first.second ) &&
+		     BitSet::set_disjoint (matching->first.second, it->first.first  ) 
+		    ))
+		continue;
+	    for (uint i = 0; i < it->second.size(); i++) {
+		for (uint j = 0; j < matching->second.size(); j++) {
+		    // std::cout << "On: " << *it->second[i].v << " + " << *matching->second[j].v << "\n" ;
+		    // Check for sign inconsistency on the last component 
+		    if (it->second[i].last_entry() <= 0 && matching->second[j].last_entry() <= 0 )
+			continue;
+		    if (it->second[i].last_entry() >= 0 && matching->second[j].last_entry() >= 0 )
+			continue;
+		    // Todo: 'Quickcheck'
+		    Vector sum = *it->second[i].v + *matching->second[j].v;
+		    // std::cout << "I decided to check the sum " << *it->second[i].v << " + " << *matching->second[j].v << "=" << sum << "\n" ;
+		    if (m_graverVectors->is_reducible (sum)) {
+			// std::cout << "was reducible... \n";
+		    }		    
+		    else {
+			// std::cout << "great, not reducible ! \n";
+			result.insert(std::move(sum));
+		    }
+		}
+	    }
+	}
+    }
+    // std::cout << " ... Done.\n";
     return result;
 }
