@@ -1,0 +1,14 @@
+# Test files
+A.mat
+A.gra
+B.lat
+B.gra
+C.lat
+C.gra
+D.mat
+D.gra
+E.mat
+E.gra
+
+# profiling
+gmon.out
