@@ -23,9 +23,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <vector>
 #include <iostream>
 
-#include "zsolve/ZSolveAPI.hpp"
-#include "zsolve/GraverAPI.hpp"
-
 #include "groebner/Vector.h"
 #include "groebner/VectorStream.h"
 #include "groebner/VectorArray.h"
@@ -34,6 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "groebner/GraverVectorsWithFilter.h"
 #include "groebner/BitSet.h"
 #include "groebner/BitSetStream.h"
+#include "groebner/LatticeBasis.h"
 
 using namespace _4ti2_;
 
@@ -133,40 +131,12 @@ GraverVectorsWithFilter::lift_with_basis(
     const VectorArray& basis,
     const VectorArray& lifted_basis)
 {
-    // use zsolve to solve (basis * x = v) (qsolve can only handle homogeneous systems atm)
-    _4ti2_zsolve_::ZSolveAPI<IntegerType> *zsolve_api = new _4ti2_zsolve_::ZSolveAPI<IntegerType>;
-    // How to pass options?
-//    char *opt = "zsolve --quiet";
-//    zsolve_api->set_options(2, &opt);
-    std::stringstream connect_basis;
-    std::stringstream connect_rhs;
-    connect_basis << basis.get_number() << " " << basis.get_size() << " ";
-    connect_basis << basis;
-    connect_rhs << "1 " << v.get_size() << " ";
-    connect_rhs << v;
-    zsolve_api->create_matrix(connect_basis, "mat");
-    zsolve_api->create_matrix(connect_rhs, "rhs");
-    zsolve_api->compute();
-    _4ti2_matrix *result = zsolve_api->get_matrix("zinhom"); // This is the desired coefficient vector
-    Vector *coefficient_vector = new Vector (lifted_basis.get_number());
-    for (int i =0; i < lifted_basis.get_number(); i++) {
-#ifdef _4ti2_GMP
-	    result->get_entry_mpz_class (0,i, (*coefficient_vector)[i]);
-#elif defined(_4ti2_INT64_)
-	    result->get_entry_int64_t (0,i, (*coefficient_vector)[i]);
-#elif defined(_4ti2_INT32_)
-	    result->get_entry_int32_t (0,i, (*coefficient_vector)[i]);
-#elif 1
-	    // This branch is only to remove -Wunused-variable warning
-	    // that appears without it.  It should never be used
-	    i = result->get_num_cols();
-#endif
-    }
-    delete zsolve_api;
+    // need to solve (basis * x = v)
+    Vector sol (basis.get_number());
+    solve (basis, v, sol);
     Vector result_vector (lifted_basis.get_size(), 0);
     for (int i = 0; i < lifted_basis.get_number(); i++)
-	result_vector.add( (lifted_basis[i]) * ((*coefficient_vector)[i]));
-    delete coefficient_vector;
+	result_vector.add( (lifted_basis[i]) * (sol[i]));
     return result_vector;
 }
 
