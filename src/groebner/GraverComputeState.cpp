@@ -194,7 +194,12 @@ GraverComputeState::liftGraverProperty () {
   	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
   	    it->wait();
   	std::cout << "Done.\n";
-	// Retrieve results
+
+	// Storing new Graver elements: No newly created vector is
+	// redundant, but there may be duplicates among the vectors
+	// retrived from the different jobs.  To remove them, we build
+	// a reduction tree only for new vectors.
+	ReductionTree *R = new ReductionTree;
 	for (auto it = m_futures.begin(); it != m_futures.end(); ++it) {
 	    VectorArray res = it->get();
 	    // VectorArray res = std::move(*it);
@@ -208,12 +213,6 @@ GraverComputeState::liftGraverProperty () {
 	    }
 	    // std::cout << "I'm going to add new vectors. So far I got " << m_graverVectors->get_number() << std::endl;
 
-	    // Storing new Graver elements: No newly created vector is
-	    // redundant, but there may be duplicates among the
-	    // vectors retrived from the different jobs.  To remove
-	    // them, we build a second reduction tree only for new
-	    // vectors.
-	    ReductionTree *R = new ReductionTree;
 	    std::cout << "Need to run " << res.get_number() << " reduction tests :(" << std::endl;
 	    for (int j = 0; j<res.get_number(); j++){
 		if (! R->isReducible(res[j])) {
@@ -221,12 +220,12 @@ GraverComputeState::liftGraverProperty () {
 		    m_graverVectors->insert(std::move(res[j]));
 		}
 	    }
-	    delete R;
 	    std::cout << "Done with that" << std::endl;
 	    // std::cout << "and now there are: " << m_graverVectors->get_number() << std::endl;
 	}
 	// Clean up futures:
 	m_futures.clear();
+	delete R;
 	    
 	// Now all jobs with norm sum <= current_norm are done.
 	// Add new jobs for each norm pair (i, current_norm), i=
