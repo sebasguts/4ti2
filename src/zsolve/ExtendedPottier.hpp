@@ -209,8 +209,10 @@ protected:
                 if ((!m_symmetric && tmp.first[m_current_variable] < 0) || (tmp.first[m_current_variable] > 0))
                     enum_second (m_roots[norms.second], tmp, norms, resultDump);
             }
-            if (tree->level >= 0)
-                enum_first (tree, tmp, norms, resultDump);
+	    // Let's comment out this branch, it looks like dead code
+            // if (tree->level >= 0) {
+            //     enum_first (tree, tmp, norms, resultDump);
+	    // }
         }
         else
         {
@@ -225,20 +227,20 @@ protected:
 
     void enum_second (ValueTree <T> * tree, threeTempVectors<T>& tmp, threeNorms<T>& norms, std::vector<T*>& resultDump)
     {
-        if (tree->level < 0)
+        if (tree->level < 0) // arrived at leaf
         {
             for (size_t i = 0; i < tree->vector_indices.size(); i++)
             {
                 tmp.second = (*m_lattice)[tree->vector_indices[i]];
-                //std::cout << "enum_second enumerated [";
-                //print_vector (std::cout, m_second_vector, m_variables);
-                //std::cout << "]" << std::endl;
+                // std::cout << "enum_second enumerated [";
+                // print_vector (std::cout, tmp.second, m_variables);
+                // std::cout << "]" << std::endl;
                 build_sum (tmp, norms, resultDump);
             }
             if (tree->level >= 0)
                 enum_second (tree, tmp, norms, resultDump);
         }
-        else if (tree->level == (int) m_current_variable)
+        else if (tree->level == (int) m_current_variable)  // Comparing currently being lifted column
         {
             T value = tmp.first[tree->level];
             if (value <= 0)
@@ -248,7 +250,7 @@ protected:
                 for (size_t i = 0; i < tree->neg.size(); i++)
                     enum_second (tree->neg[i]->sub_tree, tmp, norms, resultDump);
         }
-        else
+        else  // Comparing any other column
         {
             T value = tmp.first[tree->level];
             if (tree->zero != NULL)
@@ -334,11 +336,11 @@ protected:
 
     void build_sum (threeTempVectors<T>& tmp, threeNorms <T>& norms, std::vector<T*>& resultDump)
     {
-        //std::cout << "buildSum (";
-        //print_vector (std::cout, m_first_vector, m_variables);
-        //std::cout << ") + (";
-        //print_vector (std::cout, m_second_vector, m_variables);
-        //std::cout << ")" << std::endl;
+        // std::cout << "buildSum (";
+        // print_vector (std::cout, tmp.first, m_variables);
+        // std::cout << ") + (";
+        // print_vector (std::cout, tmp.second, m_variables);
+        // std::cout << ")" << std::endl;
 
         if (tmp.first == tmp.second)
             return;
@@ -425,17 +427,23 @@ protected:
         //std::cout << "]" << std::endl;
         
         //count_insertions++;
-	insert_trees (tmp.sum, norms.sum);
-	// resultDump.push_back(copy_vector<T> (tmp.sum, m_variables));
-	if (m_symmetric)
-	{
-	    for (size_t i = 0; i < m_variables; i++)
-		tmp.sum[i] = -tmp.sum[i];
-	    //std::cout << "Inserting [";
-	    //print_vector (std::cout, tmp.sum, m_variables);
-	    //std::cout << "]" << std::endl;
-	    insert_trees (tmp.sum, norms.sum);
-	}
+	// std::cout << "Doing an insert into norm: " << norms.sum << std::endl;
+	// insert_trees (tmp.sum, norms.sum);
+	resultDump.push_back(copy_vector<T> (tmp.sum, m_variables));
+	// std::cout << "Size of resultDump " << resultDump.size() << std::endl;
+	// for (auto it = resultDump.begin(); it != resultDump.end(); it++){
+	//     print_vector (std::cout, *it, m_variables);
+	//     std::cout << std::endl;
+	// }
+// 	if (m_symmetric)
+// 	{
+// 	    for (size_t i = 0; i < m_variables; i++)
+// 		tmp.sum[i] = -tmp.sum[i];
+// 	    //std::cout << "Inserting [";
+// 	    //print_vector (std::cout, tmp.sum, m_variables);
+// 	    //std::cout << "]" << std::endl;
+// 	    insert_trees (tmp.sum, norms.sum);
+// 	}
 
         //std::cout << "Tree after insertion:\n";
         //dump_trees ();
@@ -657,12 +665,24 @@ protected:
             //std::cout << "enum_first finished." << std::endl;
 	    T* neg = create_vector<T> (m_variables);
 	    for (auto it = res.begin(); it != res.end(); it++ ){
-		// insert_trees(*it, norms.sum);
-		// insert negative:
-		for (size_t i = 0; i < m_variables; i++){
-		    neg[i] = -(*it)[i];
+		bool isReducible = false;
+		for (auto iter = m_roots.begin (); iter != m_roots.end() && iter->first <= norms.sum; iter++)
+		{
+		    // trick the reducer
+		    tmp.sum = *it;
+		    if (enum_reducer (iter->second, tmp)) {
+			isReducible = true;
+			break;
+		    }
 		}
-		// insert_trees(neg, norms.sum);
+		if (!isReducible) {
+		    insert_trees(*it, norms.sum);
+		    // insert negative:
+		    for (size_t i = 0; i < m_variables; i++){
+			neg[i] = -(*it)[i];
+		    }
+		    insert_trees(neg, norms.sum);
+		}
 	    }
 	    delete_vector (neg);
 	    res.clear();
