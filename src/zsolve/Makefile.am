@@ -72,7 +72,8 @@ zsolveinclude_HEADERS = \
 	ZSolveAPI.hpp \
 	HilbertAPI.hpp \
 	GraverAPI.hpp \
-	ValueTree.hpp
+	ValueTree.hpp \
+	UniquenessHash.hpp
 
 zsolvesources =	\
 	main.cpp

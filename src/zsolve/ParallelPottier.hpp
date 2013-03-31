@@ -35,6 +35,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include "zsolve/Heuristics.hpp"
 #include "zsolve/Timer.h"
 #include "zsolve/ValueTree.hpp"
+#include "zsolve/UniqueVectorsHash.hpp"
 
 namespace _4ti2_zsolve_
 {
@@ -809,7 +810,7 @@ public:
 		std::cout << "Done.\n";
 
 		// collecting results
-		threeTempVectors<T> tmp;
+		UniqueVectorsHash<T> *unique_res = new UniqueVectorsHash<T> (m_variables);
 		T *neg = create_vector<T> (m_variables);
 		for (auto it = m_norms.begin(); it != m_norms.end(); it++) {
 		    if (it->first.sum == current_norm) {
@@ -818,28 +819,28 @@ public:
 			    max_norm = it->first.sum * 2;
 			}
 			for (auto jt = m_resultMap[it->first].begin(); jt != m_resultMap[it->first].end(); jt++ ){
-			    bool isReducible = false;
-			    for (auto iter = m_roots.begin (); iter != m_roots.end(); iter++)
-			    {
-				// trick the reducer
-				tmp.sum = *jt;
-				if (enum_reducer (iter->second, tmp)) {
-				    isReducible = true;
-				    break;
-				}
-			    }
-			    if (!isReducible) {
-				insert_trees(*jt, it->first.sum);
-				// insert negative:
+			    if (!unique_res->is_present(*jt)) {
 				for (size_t i = 0; i < m_variables; i++){
 				    neg[i] = -(*jt)[i];
 				}
-				insert_trees(neg, it->first.sum);
+// 				std::cout << "Not present: ";
+// 				print_vector (std::cout, *jt, m_variables);
+// 				std::cout << std::endl;
+				if (!unique_res->is_present(neg)) {
+//				    std::cout << "Not present: ";
+//				    print_vector (std::cout, neg, m_variables);
+//				    std::cout << std::endl;
+				    insert_trees(*jt, it->first.sum);
+				    unique_res->insert(*jt);
+				    insert_trees(neg, it->first.sum);
+				    unique_res->insert(neg);
+				}
 			    }
 			}
 		    }
 		}
 		delete_vector<T> (neg);
+		delete unique_res;
 	    } // looping the current norm
 		
             delete_trees ();
