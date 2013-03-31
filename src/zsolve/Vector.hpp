@@ -183,6 +183,20 @@ template <typename T> bool is_zero_vector (T* v, size_t size)
     return true;
 }
 
+template <typename T> bool is_same_vector (T* v1, T* v2, size_t size)
+{
+    assert (v1 != NULL);
+    assert (v2 != NULL);
+    assert (size > 0);
+
+    for (size_t i = 0; i < size; i++)
+    {
+        if (v1[i] != v2[i])
+            return false;
+    }
+    return true;
+}
+
 template <typename T> bool check_vector_consistency (T* v, size_t size)
 {
     if (v == NULL || size == 0)
