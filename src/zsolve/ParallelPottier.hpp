@@ -3,7 +3,7 @@
 problems on linear spaces.
 
 Copyright (C) 2013 4ti2 team.
-Main author(s): Thomas Kahle.
+Main author(s): Mathias Walter, Thomas Kahle.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -61,18 +61,9 @@ protected:
     T m_maxnorm; ///< current maximum norm
     size_t m_current_variable; ///< current component
     size_t m_variables; ///< components
-    // T m_sum_norm; ///< ||u+v||_1
-    // T m_first_norm; ///< ||u||_1
-    // T m_second_norm; ///< ||v||_1
 
     NormMap m_norms;
     RootMap m_roots; ///< roots of valuetrees
-    // T* m_first_vector; ///< u
-    // T* m_second_vector; ///< v
-    // T* m_sum_vector; ///< u+v
-
-    bool m_symmetric; ///< are 0 .. current symmetric components?
-    bool firstrun;
 
     Timer m_backup_timer; ///< timer
     int m_backup_frequency; ///< frequency for backup
@@ -201,7 +192,7 @@ protected:
                 //std::cout << "enum_first enumerated [";
                 //print_vector (std::cout, m_first_vector, m_variables);
                 //std::cout << "]" << std::endl;
-                if ((!m_symmetric && tmp.first[m_current_variable] < 0) || (tmp.first[m_current_variable] > 0))
+                if (tmp.first[m_current_variable] > 0)
                     enum_second (m_roots[norms.second], tmp, norms, resultDump);
             }
 	    // Let's comment out this branch, it looks like dead code
@@ -404,45 +395,12 @@ protected:
                 return;
         }
 
-	// TODO: Remove this for graver only code:
-        for (size_t i = 0; i < m_current_variable; i++)
-        {
-            if (!m_lattice->get_variable (i).check_bounds (tmp.sum[i]))
-                return;
-        }
-
         if (norms.sum > m_maxnorm)
             m_maxnorm = norms.sum;
         
-        //std::cout << "Tree before insertion:\n";
-        //dump_trees ();
-
-        //std::cout << "Inserting [";
-        //print_vector (std::cout, tmp.sum, m_variables);
-        //std::cout << "]" << std::endl;
-        
-        //count_insertions++;
-	// std::cout << "Doing an insert into norm: " << norms.sum << std::endl;
-	// insert_trees (tmp.sum, norms.sum);
 	resultDump.push_back(copy_vector<T> (tmp.sum, m_variables));
-	// std::cout << "Size of resultDump " << resultDump.size() << std::endl;
-	// for (auto it = resultDump.begin(); it != resultDump.end(); it++){
-	//     print_vector (std::cout, *it, m_variables);
-	//     std::cout << std::endl;
-	// }
-// 	if (m_symmetric)
-// 	{
-// 	    for (size_t i = 0; i < m_variables; i++)
-// 		tmp.sum[i] = -tmp.sum[i];
-// 	    //std::cout << "Inserting [";
-// 	    //print_vector (std::cout, tmp.sum, m_variables);
-// 	    //std::cout << "]" << std::endl;
-// 	    insert_trees (tmp.sum, norms.sum);
-// 	}
-
-        //std::cout << "Tree after insertion:\n";
-        //dump_trees ();
     }
+
 /*
     void dump_tree (ValueTree <T> * tree)
     {
@@ -695,9 +653,6 @@ public:
         m_maxnorm = -1;
         m_current_variable = 0;
         m_variables = m_lattice->variables ();
-        // m_sum_norm = m_first_norm = m_second_norm = 0;
-        // m_sum_vector = m_first_vector = m_second_vector = NULL;
-        m_symmetric = true;
     }
 
     void init (Lattice <T> * lattice, Controller <T> * controller)
@@ -710,9 +665,6 @@ public:
         m_maxnorm = -1;
         m_current_variable = 0;
         m_variables = m_lattice->variables ();
-        // m_sum_norm = m_first_norm = m_second_norm = 0;
-        // m_sum_vector = m_first_vector = m_second_vector = NULL;
-        m_symmetric = true;
     }
 
     void init (std::ifstream& stream, Controller <T> * controller)
@@ -720,15 +672,11 @@ public:
         m_controller = controller;
         controller->read_backup (stream);
 	// Backup functionality is broken in parallel mode!
-	T m_sum_norm = 0;
-	T m_first_norm = 0;
-//	T m_second_norm = 0;
-        stream >> m_current_variable >> m_sum_norm >> m_first_norm >> m_symmetric;
+        stream >> m_current_variable;
         int vectors;
         stream >> vectors >> m_variables;
 
         m_maxnorm = -1;
-//        m_second_norm = m_sum_norm - m_first_norm;
 
         VariableProperties <T> * properties = new VariableProperties <T> (m_variables, false, 0, 0);
         for (size_t i = 0; i < m_variables; i++)
@@ -751,7 +699,9 @@ public:
             m_lattice->append_vector (vector);
         }
 
-        m_controller->log_resume (m_variables, m_current_variable+1, m_sum_norm, m_first_norm, vectors);
+	// The two zero arguments represent the current sum and current first norm that 
+	// are not applicable for backups of the parallel algorithm.
+        m_controller->log_resume (m_variables, m_current_variable+1, 0,0, vectors);
     }
 
     ~ParallelPottier ()
@@ -764,22 +714,15 @@ public:
      * What does compute do?
      *
      * At time of start, some things have been initialized:
-     *
-     * After a normal run of init, the following have been set:
-     * 
      *    m_maxnorm = -1;
      *    m_current_variable = 0;
      *    m_variables = m_lattice->variables ();
-     *    m_sum_norm = m_first_norm = m_second_norm = 0;
-     *    m_sum_vector = m_first_vector = m_second_vector = NULL;
-     *    m_symmetric = true;
      *     
      * The linear system and a controller have been set up.
      * 
      */
     void compute (int backup_frequency = 0)
     {
-	firstrun = true;
         m_norms.clear ();
 
         m_backup_frequency = backup_frequency;
@@ -794,33 +737,22 @@ public:
 	// that are done and solves it for the next variable.
         for (; m_current_variable < m_variables; m_current_variable++)
         {
-            // DEBUG
-            //if (m_current_variable == 3)
-            //    break;
-
-            // first run in this variable
-            if (firstrun)
-            {
-                //std::cout << "\n\n\nLattice before choose:\n" << (*m_lattice) << "\nvectors = " << m_lattice->vectors () << std::endl;
-                int next = chooseNextVariable ();
-                if (next < 0)
-                    break;
-
-                //std::cout << "\n-------------------------------------------" << std::endl;
-                //std::cout << "\nChoice for next component is: " << next << std::endl;
-
-		if (m_controller != NULL)
-		    m_controller->log_variable_start (m_current_variable+1, m_lattice->vectors ());
-
-                m_lattice->swap_columns (m_current_variable, next);
+	    //std::cout << "\n\n\nLattice before choose:\n" << (*m_lattice) << "\nvectors = " << m_lattice->vectors () << std::endl;
+	    int next = chooseNextVariable ();
+	    if (next < 0)
+		break;
+	    
+	    //std::cout << "\n-------------------------------------------" << std::endl;
+	    //std::cout << "\nChoice for next component is: " << next << std::endl;
+	    
+	    if (m_controller != NULL)
+		m_controller->log_variable_start (m_current_variable+1, m_lattice->vectors ());
+	    
+	    m_lattice->swap_columns (m_current_variable, next);
                 
-                //std::cout << "Lattice after choosing new component:\n" << (*m_lattice) << "\nMaxnorm = " << m_maxnorm << std::endl;
-                preprocess ();
-		firstrun=false;
-
-                //std::cout << "Lattice after preprocessing it:\n" << (*m_lattice) << "\nMaxnorm = " << m_maxnorm << std::endl;
-            }
-
+	    //std::cout << "Lattice after choosing new component:\n" << (*m_lattice) << "\nMaxnorm = " << m_maxnorm << std::endl;
+	    preprocess ();
+	    
 	    create_trees ();
 	    std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
 
@@ -910,78 +842,12 @@ public:
 		delete_vector<T> (neg);
 	    } // looping the current norm
 		
-//	    auto i = m_norms.begin ();
-//            for (; i != m_norms.end (); i++)
-//            {
-//// 		std::cout << "\n Current norm status: " << std::endl;
-//// 		std::cout << "Number: " << m_norms.size() << std::endl;
-//// 		for (auto it = m_norms.begin(); it != m_norms.end(); it++) {
-//// 		    std::cout << it->first.sum << ", ";
-//// 		}
-//// 		std::cout << std::endl;
-//                NormPair <T> pair = i->first;
-//
-////		threeNorms<T> norms;
-////                norms.first = pair.first;
-////                norms.second = pair.second;
-////                norms.sum = pair.sum;
-//
-//                if (old_sum != pair.sum)
-//                {
-//                    //std::cout << "completes: " << complete_calls << ", builds: " << count_builds << ", reductions: " << count_reduces << ", insertions: " << count_insertions << std::endl;
-//		    if (m_controller != NULL)
-//			m_controller->log_sum_start (m_current_variable+1, pair.sum, m_lattice->vectors ());
-//                }
-//
-//		if (m_controller != NULL)
-//		    m_controller->log_norm_start (m_current_variable+1, pair.sum, pair.first, m_lattice->vectors ());
-//
-//		std::map <NormPair <T>, std::vector <T*> > r; // Locations to store result vectors
-//                //complete_calls++;
-//		complete (pair, r);
-//		
-//                //if (m_backup_timer.get_elapsed_time () > 300)
-//                //    exit (2);
-//
-//		if (m_controller != NULL)
-//		    m_controller->log_norm_end (m_current_variable+1, pair.sum, pair.first, m_lattice->vectors ());
-//                
-//                if (old_sum != pair.sum)
-//                {
-//		    if (m_controller != NULL)
-//			m_controller->log_sum_end (m_current_variable+1, pair.sum, m_lattice->vectors ());
-//                    old_sum = pair.sum;
-//                }
-//            
-//                if (backup_frequency != 0 && m_backup_timer.get_elapsed_time () > backup_frequency)
-//                {
-//                    // Backup
-//                    m_backup_timer.reset ();
-//		    if (m_controller != NULL)
-//			m_controller->backup_data (*m_lattice, m_current_variable, pair.sum, pair.first, m_symmetric);
-//                }
-//
-//            }
-
-            //std::cout << "Lattice after generating minimals:\n" << (*m_lattice) << "\nMaxnorm = " << m_maxnorm << std::endl;
-
             delete_trees ();
-            if (!m_lattice->get_variable (m_current_variable).is_symmetric ())
-                m_symmetric = false;
-            m_lattice->filter_bounds (m_current_variable);
-            
-            //std::cout << "Lattice after filtering bounds:\n" << (*m_lattice) << "\nMaxnorm = " << m_maxnorm << std::endl;
-
 	    if (m_controller != NULL)
 		m_controller->log_variable_end (m_current_variable+1, m_lattice->vectors ());
-
-	    firstrun = true;
         }
 
         //std::cout << "Finished with " << m_lattice->vectors () << " solutions." << std::endl;
-
-        // delete_vector <T> (m_sum_vector);
-
         m_lattice->sort_columns ();
     }
 
@@ -992,57 +858,8 @@ public:
 
     void extract_zsolve_results (VectorArray <T>& inhoms, VectorArray <T>& homs, VectorArray <T>& free)
     {
-        int split = m_lattice->get_splitter ();
-        int result_variables = m_lattice->get_result_num_variables ();
-
-        inhoms.clear ();
-        homs.clear ();
-        free.clear ();
-        if (split < 0)
-            inhoms.append_vector (create_zero_vector <T> (result_variables));
-
-        for (size_t i = 0; i < m_lattice->vectors (); i++)
-        {
-            T* vector = (*m_lattice)[i];
-            T* result = copy_vector <T> (vector, result_variables);
-
-            //std::cout << "looking at: ";
-            //print_vector (std::cout, result, result_variables);
-            //std::cout << std::endl;
-
-            bool is_hom = split < 0 || vector[split] == 0;
-
-            bool is_free = true;
-            for (size_t j = 0; j < m_variables; j++)
-                if (vector[j] != 0 && !m_lattice->get_variable (j).free ())
-                    is_free = false;
-
-            // bool has_symmetric = true;
-            // for (size_t j = 0; j < m_variables; j++)
-            //     if (!m_lattice->get_variable (j).check_bounds (-vector[j]))
-            //         has_symmetric = false;
-	    // 
-            // //std::cout << is_free << std::endl;
-            // 
-            // assert (!is_free || has_symmetric);
-
-            //int lex_cmp = lex_compare_vector_with_negative (vector, result_variables);
-
-            if (is_free)
-            {
-                free.append_vector (result);
-            }
-            else
-            {
-                if (is_hom)
-                    homs.append_vector (result);
-                else
-                    inhoms.append_vector (result);
-            }
-        }
-
-	    if (m_controller != NULL)
-	        m_controller->log_result (inhoms.vectors (), homs.vectors (), free.vectors ());
+	std::cout << "Error.  I am not a zsolve implementation!\n";
+	exit (1);
     }
 
     void extract_graver_results (VectorArray <T>& graver)
@@ -1074,20 +891,8 @@ public:
     
     void extract_hilbert_results (VectorArray <T>& hilbert)
     {
-        assert (m_lattice->get_splitter () == -1);
-        assert (m_lattice->get_result_num_variables () == m_variables);
-
-        hilbert.clear ();
-
-        for (size_t i = 0; i < m_lattice->vectors (); i++)
-        {
-            T* vector = (*m_lattice)[i];
-            T* result = copy_vector <T> (vector, m_variables);
-            hilbert.append_vector (result);
-        }
-
-	    if (m_controller != NULL)
-	        m_controller->log_result (1, m_lattice->vectors (), 0);
+	std::cout << "Error, I am not a hilbert implementation!\n";
+	exit(1);
     }
 
     T extract_maxnorm_results (VectorArray <T> & maxnorm)
