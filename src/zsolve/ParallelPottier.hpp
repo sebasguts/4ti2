@@ -2,8 +2,8 @@
 4ti2 -- A software package for algebraic, geometric and combinatorial
 problems on linear spaces.
 
-Copyright (C) 2006 4ti2 team.
-Main author(s): Matthias Walter.
+Copyright (C) 2013 4ti2 team.
+Main author(s): Thomas Kahle.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -20,8 +20,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA. 
 */
 
-#ifndef _4ti2_zsolve__ExtendedPottier_
-#define _4ti2_zsolve__ExtendedPottier_
+#ifndef _4ti2_zsolve__ParallelPottier_
+#define _4ti2_zsolve__ParallelPottier_
 
 #include <algorithm>
 #include <map>
@@ -49,7 +49,7 @@ struct threeTempVectors {
 template <typename T> class Controller;
 
 template <typename T> 
-class ExtendedPottier : public Algorithm <T>
+class ParallelPottier : public Algorithm <T>
 {
 protected:
     typedef std::map <T, ValueTree <T> *> RootMap;
@@ -666,7 +666,7 @@ protected:
     }
 
 public:
-    ExtendedPottier () { };
+    ParallelPottier () { };
 
     void init (LinearSystem <T> * system, Controller <T>* controller)
     {
@@ -754,7 +754,7 @@ public:
         m_controller->log_resume (m_variables, m_current_variable+1, m_sum_norm, m_first_norm, vectors);
     }
 
-    ~ExtendedPottier ()
+    ~ParallelPottier ()
     {
         delete m_lattice;
     }
@@ -860,7 +860,7 @@ public:
 			// complete (it->first, std::ref(m_resultMap));
   			std::future<void> fut = std::async(
   			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
-  			    &ExtendedPottier<T>::complete,
+  			    &ParallelPottier<T>::complete,
 			    this,
   			    it->first,
   			    std::ref(m_resultMap));
