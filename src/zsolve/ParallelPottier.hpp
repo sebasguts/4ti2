@@ -356,12 +356,12 @@ protected:
             //if (tmp.second[i] != 0)
             //    flag = true;
 
-	    int current_precision = calcPrecision (tmp.sum[i]);
-	    int max_precision = maxPrecision (tmp.sum[i]);
-	    if (max_precision > 0 && current_precision + 1 >= max_precision)
-	    {
-		throw PrecisionException (max_precision);
-	    }
+//	    int current_precision = calcPrecision (tmp.sum[i]);
+//	    int max_precision = maxPrecision (tmp.sum[i]);
+//	    if (max_precision > 0 && current_precision + 1 >= max_precision)
+//	    {
+//		throw PrecisionException (max_precision);
+//	    }
         }
         //if (!flag)
         //    std::cerr << "\n\nGENERATED ZERO VECTOR!!!!\n\n" << std::endl;
