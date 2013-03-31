@@ -371,8 +371,6 @@ protected:
 
 //        if (norm == 0)
 //            return;
-	if (m_controller != NULL)
-	    m_controller->log_status (m_current_variable+1, norms.sum, m_maxnorm, norms.first, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
 
         // TODO: norm / 2 ??
         for (auto iter = m_roots.begin (); iter != m_roots.end() && iter->first <= norms.sum/2; iter++)
@@ -808,6 +806,9 @@ public:
 		for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
 		    it->wait();
 		std::cout << "Done.\n";
+
+		if (m_controller != NULL)
+		    m_controller->log_status (m_current_variable+1, current_norm, m_maxnorm, 0, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
 
 		// collecting results
 		UniqueVectorsHash<T> *unique_res = new UniqueVectorsHash<T> (m_variables);
