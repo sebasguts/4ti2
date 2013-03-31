@@ -394,9 +394,7 @@ protected:
                 return;
         }
 
-        if (norms.sum > m_maxnorm)
-            m_maxnorm = norms.sum;
-        
+	// Delegate clean-up to receiver of the resultDump
 	resultDump.push_back(copy_vector<T> (tmp.sum, m_variables));
     }
 
@@ -772,15 +770,15 @@ public:
 	    }
 	    std::cout << std::endl;
 
-	    T max_norm = m_norms.rbegin()->first.sum;
-	    std::cout << "Maximum norm on first components:" << max_norm << "\n";
+	    m_maxnorm = m_norms.rbegin()->first.sum;
+ 	    std::cout << "Maximum norm on first components:" << m_maxnorm << "\n";
 
             // norm pairs
             // T old_sum = -1;
 
  	    T current_norm = 0;
  	    // The big job-loop
- 	    while (current_norm < max_norm) {
+ 	    while (current_norm < m_maxnorm) {
  		current_norm++;
  		std::cout << "Now doing norm: "<< current_norm << "\n";
  		std::vector < std::future <void> > m_futures;
@@ -817,26 +815,19 @@ public:
 		    if (it->first.sum == current_norm) {
 			if (m_resultMap[it->first].size() > 0){
 			    std::cout << "Inserting: " << m_resultMap[it->first].size() << " results.\n";
-			    max_norm = it->first.sum * 2;
+			    m_maxnorm = it->first.sum * 2;
 			}
 			for (auto jt = m_resultMap[it->first].begin(); jt != m_resultMap[it->first].end(); jt++ ){
 			    if (!unique_res->is_present(*jt)) {
 				for (size_t i = 0; i < m_variables; i++){
 				    neg[i] = -(*jt)[i];
 				}
-// 				std::cout << "Not present: ";
-// 				print_vector (std::cout, *jt, m_variables);
-// 				std::cout << std::endl;
-				if (!unique_res->is_present(neg)) {
-//				    std::cout << "Not present: ";
-//				    print_vector (std::cout, neg, m_variables);
-//				    std::cout << std::endl;
-				    insert_trees(*jt, it->first.sum);
-				    unique_res->insert(*jt);
-				    insert_trees(neg, it->first.sum);
-				    unique_res->insert(neg);
-				}
+				insert_trees(*jt, it->first.sum);
+				unique_res->insert(*jt);
+				insert_trees(neg, it->first.sum);
+				unique_res->insert(neg);
 			    }
+			    delete_vector (*jt);
 			}
 		    }
 		}
