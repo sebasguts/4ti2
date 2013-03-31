@@ -23,7 +23,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef _4ti2_zsolve__ExtendedPottier_
 #define _4ti2_zsolve__ExtendedPottier_
 
+#include <algorithm>
 #include <map>
+#include <future>
+
 #include "zsolve/Algorithm.hpp"
 #include "zsolve/BitSet.h"
 #include "zsolve/LinearSystem.hpp"
@@ -35,6 +38,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 namespace _4ti2_zsolve_
 {
+
+template <typename T>
+struct threeTempVectors {
+    T *first;
+    T *second;
+    T *sum;
+};
 
 template <typename T> class Controller;
 
@@ -51,17 +61,18 @@ protected:
     T m_maxnorm; ///< current maximum norm
     size_t m_current_variable; ///< current component
     size_t m_variables; ///< components
-    T m_sum_norm; ///< ||u+v||_1
-    T m_first_norm; ///< ||u||_1
-    T m_second_norm; ///< ||v||_1
+    // T m_sum_norm; ///< ||u+v||_1
+    // T m_first_norm; ///< ||u||_1
+    // T m_second_norm; ///< ||v||_1
 
     NormMap m_norms;
     RootMap m_roots; ///< roots of valuetrees
-    T* m_first_vector; ///< u
-    T* m_second_vector; ///< v
-    T* m_sum_vector; ///< u+v
+    // T* m_first_vector; ///< u
+    // T* m_second_vector; ///< v
+    // T* m_sum_vector; ///< u+v
 
     bool m_symmetric; ///< are 0 .. current symmetric components?
+    bool firstrun;
 
     Timer m_backup_timer; ///< timer
     int m_backup_frequency; ///< frequency for backup
@@ -180,73 +191,75 @@ protected:
         insert_tree (m_roots[norm], vid, true);
     }
 
-    void enum_first (ValueTree <T> * tree)
+    void enum_first (ValueTree <T> * tree, threeTempVectors<T>& tmp, const NormPair<T>& norms, std::vector<T*>& resultDump)
     {
         if (tree->level < 0)
         {
             for (size_t i = 0; i < tree->vector_indices.size(); i++)
             {
-                m_first_vector = (*m_lattice)[tree->vector_indices[i]];
+                tmp.first = (*m_lattice)[tree->vector_indices[i]];
                 //std::cout << "enum_first enumerated [";
                 //print_vector (std::cout, m_first_vector, m_variables);
                 //std::cout << "]" << std::endl;
-                if ((!m_symmetric && m_first_vector[m_current_variable] < 0) || (m_first_vector[m_current_variable] > 0))
-                    enum_second (m_roots[m_second_norm]);
+                if ((!m_symmetric && tmp.first[m_current_variable] < 0) || (tmp.first[m_current_variable] > 0))
+                    enum_second (m_roots[norms.second], tmp, norms, resultDump);
             }
-            if (tree->level >= 0)
-                enum_first (tree);
+	    // Let's comment out this branch, it looks like dead code
+            // if (tree->level >= 0) {
+            //     enum_first (tree, tmp, norms, resultDump);
+	    // }
         }
         else
         {
             if (tree->zero != NULL)
-                enum_first (tree->zero);
+                enum_first (tree->zero, tmp, norms, resultDump);
             for (size_t i = 0; i < tree->pos.size (); i++)
-                enum_first (tree->pos[i]->sub_tree);
+                enum_first (tree->pos[i]->sub_tree, tmp, norms, resultDump);
             for (size_t i = 0; i < tree->neg.size (); i++)
-                enum_first (tree->neg[i]->sub_tree);
+                enum_first (tree->neg[i]->sub_tree, tmp, norms, resultDump);
         }
     }
 
-    void enum_second (ValueTree <T> * tree)
+    void enum_second (ValueTree <T> * tree, threeTempVectors<T>& tmp, const NormPair<T>& norms, std::vector<T*>& resultDump)
     {
-        if (tree->level < 0)
+        if (tree->level < 0) // arrived at leaf
         {
             for (size_t i = 0; i < tree->vector_indices.size(); i++)
             {
-                m_second_vector = (*m_lattice)[tree->vector_indices[i]];
-                //std::cout << "enum_second enumerated [";
-                //print_vector (std::cout, m_second_vector, m_variables);
-                //std::cout << "]" << std::endl;
-                build_sum ();
+                tmp.second = (*m_lattice)[tree->vector_indices[i]];
+                // std::cout << "enum_second enumerated [";
+                // print_vector (std::cout, tmp.second, m_variables);
+                // std::cout << "]" << std::endl;
+                build_sum (tmp, norms, resultDump);
             }
             if (tree->level >= 0)
-                enum_second (tree);
+                enum_second (tree, tmp, norms, resultDump);
         }
-        else if (tree->level == (int) m_current_variable)
+        else if (tree->level == (int) m_current_variable)  // Comparing currently being lifted column
         {
-            T value = m_first_vector[tree->level];
+            T value = tmp.first[tree->level];
             if (value <= 0)
                 for (size_t i = 0; i < tree->pos.size(); i++)
-                    enum_second (tree->pos[i]->sub_tree);
+                    enum_second (tree->pos[i]->sub_tree, tmp, norms, resultDump);
             if (value >= 0)
                 for (size_t i = 0; i < tree->neg.size(); i++)
-                    enum_second (tree->neg[i]->sub_tree);
+                    enum_second (tree->neg[i]->sub_tree, tmp, norms, resultDump);
         }
-        else
+        else  // Comparing any other column
         {
-            T value = m_first_vector[tree->level];
+            T value = tmp.first[tree->level];
             if (tree->zero != NULL)
-                enum_second (tree->zero);
+                enum_second (tree->zero,tmp, norms, resultDump);
             if (value >= 0)
                 for (size_t i = 0; i < tree->pos.size(); i++)
-                    enum_second (tree->pos[i]->sub_tree);
+                    enum_second (tree->pos[i]->sub_tree,tmp, norms, resultDump);
             if (value <= 0)
                 for (size_t i = 0; i < tree->neg.size(); i++)
-                    enum_second (tree->neg[i]->sub_tree);
+                    enum_second (tree->neg[i]->sub_tree,tmp, norms, resultDump);
         }
     }
 
-    bool enum_reducer (ValueTree <T> * tree)
+    bool enum_reducer (ValueTree <T> * tree, threeTempVectors<T>& tmp)
     {
         if (tree->level < 0)
         {
@@ -258,7 +271,7 @@ protected:
                 {
                     if (reducer[j] < 0)
                     {
-                        if (m_sum_vector[j] >= 0 || abs (reducer[j]) > abs (m_sum_vector[j]))
+                        if (tmp.sum[j] >= 0 || abs (reducer[j]) > abs (tmp.sum[j]))
                         {
                             flag = false;
                             break;
@@ -266,7 +279,7 @@ protected:
                     }
                     else if (reducer[j] > 0)
                     {
-                        if (m_sum_vector[j] <= 0 || abs (reducer[j]) > abs (m_sum_vector[j]))
+                        if (tmp.sum[j] <= 0 || abs (reducer[j]) > abs (tmp.sum[j]))
                         {
                             flag = false;
                             break;
@@ -276,7 +289,7 @@ protected:
                 if (flag)
                 {
                     //std::cout << "Reduced (";
-                    //print_vector (std::cout, m_sum_vector, m_current_variable+1);
+                    //print_vector (std::cout, tmp.sum, m_current_variable+1);
                     //std::cout << ") by (";
                     //print_vector (std::cout, reducer, m_current_variable+1);
                     //std::cout << ")" << std::endl;
@@ -287,14 +300,14 @@ protected:
         }
         else
         {
-            T value = m_sum_vector[tree->level];
+            T value = tmp.sum[tree->level];
             if (value > 0)
             {
                 for (auto iter = tree->pos.begin (); iter != tree->pos.end(); iter++)
                 {
                     if ((*iter)->value > value)
                         break;
-                    if (enum_reducer ((*iter)->sub_tree))
+                    if (enum_reducer ((*iter)->sub_tree, tmp))
                         return true;
                 }
             }
@@ -304,53 +317,55 @@ protected:
                 {
                     if ((*iter)->value < value)
                         break;
-                    if (enum_reducer ((*iter)->sub_tree))
+                    if (enum_reducer ((*iter)->sub_tree, tmp))
                         return true;
                 }
                 
             }
             if (tree->zero != NULL)
-                if (enum_reducer (tree->zero))
+                if (enum_reducer (tree->zero, tmp))
                     return true;
         }
         return false;
     }
 
-    void build_sum ()
+    void build_sum (threeTempVectors<T>& tmp, const NormPair<T>& norms, std::vector<T*>& resultDump)
     {
-        //std::cout << "buildSum (";
-        //print_vector (std::cout, m_first_vector, m_variables);
-        //std::cout << ") + (";
-        //print_vector (std::cout, m_second_vector, m_variables);
-        //std::cout << ")" << std::endl;
+        // std::cout << "buildSum (";
+        // print_vector (std::cout, tmp.first, m_variables);
+        // std::cout << ") + (";
+        // print_vector (std::cout, tmp.second, m_variables);
+        // std::cout << ")" << std::endl;
 
-        if (m_first_vector == m_second_vector)
+        if (tmp.first == tmp.second)
             return;
 
         //count_builds++;
 
-        if (m_first_vector[m_current_variable] <= 0 && m_second_vector[m_current_variable] <= 0)
+        if (tmp.first[m_current_variable] <= 0 && tmp.second[m_current_variable] <= 0)
             return;
-        if (m_first_vector[m_current_variable] >= 0 && m_second_vector[m_current_variable] >= 0)
+        if (tmp.first[m_current_variable] >= 0 && tmp.second[m_current_variable] >= 0)
             return;
 
         for (size_t i = 0; i < m_current_variable; i++)
         {
-            if (m_first_vector[i] < 0 && m_second_vector[i] > 0)
+            if (tmp.first[i] < 0 && tmp.second[i] > 0)
                 return;
-            if (m_first_vector[i] > 0 && m_second_vector[i] < 0)
+            if (tmp.first[i] > 0 && tmp.second[i] < 0)
                 return;
         }
+
+	// TODO: Quickcheck goes here
 
         //bool flag = false;
         for (size_t i = 0; i < m_variables; i++)
         {
-            m_sum_vector[i] = m_first_vector[i] + m_second_vector[i];
-            //if (m_second_vector[i] != 0)
+            tmp.sum[i] = tmp.first[i] + tmp.second[i];
+            //if (tmp.second[i] != 0)
             //    flag = true;
 
-	    int current_precision = calcPrecision (m_sum_vector[i]);
-	    int max_precision = maxPrecision (m_sum_vector[i]);
+	    int current_precision = calcPrecision (tmp.sum[i]);
+	    int max_precision = maxPrecision (tmp.sum[i]);
 	    if (max_precision > 0 && current_precision + 1 >= max_precision)
 	    {
 		throw PrecisionException (max_precision);
@@ -359,18 +374,18 @@ protected:
         //if (!flag)
         //    std::cerr << "\n\nGENERATED ZERO VECTOR!!!!\n\n" << std::endl;
 
+	// This is equal to norms.sum, no need to recompute
+        // T norm = norm_vector (tmp.sum, m_current_variable);
 
-        T norm = norm_vector (m_sum_vector, m_current_variable);
-
-        if (norm == 0)
-            return;
+//        if (norm == 0)
+//            return;
 	if (m_controller != NULL)
-	    m_controller->log_status (m_current_variable+1, m_sum_norm, m_maxnorm, m_first_norm, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
+	    m_controller->log_status (m_current_variable+1, norms.sum, m_maxnorm, norms.first, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
 
         // TODO: norm / 2 ??
-        for (auto iter = m_roots.begin (); iter != m_roots.end() && iter->first <= norm/2; iter++)
+        for (auto iter = m_roots.begin (); iter != m_roots.end() && iter->first <= norms.sum/2; iter++)
         {
-            if (enum_reducer (iter->second))
+            if (enum_reducer (iter->second, tmp))
                 return;
         }
 /*        for (T i = 0; i <= norm/2; i++)
@@ -382,40 +397,48 @@ protected:
                     return;
             }
         } */
-        if (m_roots.find (norm) != m_roots.end ())
+        if (m_roots.find (norms.sum) != m_roots.end ())
         {
             //std::cout << "enum_reducer (roots[" << norm << "])" << std::endl;
-            if (enum_reducer (m_roots[norm]))
+            if (enum_reducer (m_roots[norms.sum], tmp))
                 return;
         }
 
+	// TODO: Remove this for graver only code:
         for (size_t i = 0; i < m_current_variable; i++)
         {
-            if (!m_lattice->get_variable (i).check_bounds (m_sum_vector[i]))
+            if (!m_lattice->get_variable (i).check_bounds (tmp.sum[i]))
                 return;
         }
 
-        if (norm > m_maxnorm)
-            m_maxnorm = norm;
+        if (norms.sum > m_maxnorm)
+            m_maxnorm = norms.sum;
         
         //std::cout << "Tree before insertion:\n";
         //dump_trees ();
 
         //std::cout << "Inserting [";
-        //print_vector (std::cout, m_sum_vector, m_variables);
+        //print_vector (std::cout, tmp.sum, m_variables);
         //std::cout << "]" << std::endl;
         
         //count_insertions++;
-        insert_trees (m_sum_vector, norm);
-        if (m_symmetric)
-        {
-            for (size_t i = 0; i < m_variables; i++)
-                m_sum_vector[i] = -m_sum_vector[i];
-            //std::cout << "Inserting [";
-            //print_vector (std::cout, m_sum_vector, m_variables);
-            //std::cout << "]" << std::endl;
-            insert_trees (m_sum_vector, norm);
-        }
+	// std::cout << "Doing an insert into norm: " << norms.sum << std::endl;
+	// insert_trees (tmp.sum, norms.sum);
+	resultDump.push_back(copy_vector<T> (tmp.sum, m_variables));
+	// std::cout << "Size of resultDump " << resultDump.size() << std::endl;
+	// for (auto it = resultDump.begin(); it != resultDump.end(); it++){
+	//     print_vector (std::cout, *it, m_variables);
+	//     std::cout << std::endl;
+	// }
+// 	if (m_symmetric)
+// 	{
+// 	    for (size_t i = 0; i < m_variables; i++)
+// 		tmp.sum[i] = -tmp.sum[i];
+// 	    //std::cout << "Inserting [";
+// 	    //print_vector (std::cout, tmp.sum, m_variables);
+// 	    //std::cout << "]" << std::endl;
+// 	    insert_trees (tmp.sum, norms.sum);
+// 	}
 
         //std::cout << "Tree after insertion:\n";
         //dump_trees ();
@@ -618,19 +641,27 @@ protected:
         }
     }
 
-    void complete ()
+    void complete (const NormPair<T>& norms, std::map<NormPair<T>, std::vector<T*> >& res)
     {
 	if (m_controller != NULL)
-	    m_controller->log_status (m_current_variable+1, m_sum_norm, m_maxnorm, m_first_norm, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
-        //std::cout << "Variable: " << m_current_variable+1 << ", Sum: " << m_first_norm << " + " << m_second_norm << " = " << m_sum_norm << ", Solutions = " << m_lattice->vectors () << std::endl;
+	    m_controller->log_status (m_current_variable+1, norms.sum, m_maxnorm, norms.first, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
+        //std::cout << "Variable: " << m_current_variable+1 << ", Sum: " << norms.first << " + " << norms.second << " = " << norms.sum << ", Solutions = " << m_lattice->vectors () << std::endl;
 
         //dump_trees ();
 
-        if ((m_roots.find (m_first_norm) != m_roots.end ()) && (m_roots.find (m_second_norm) != m_roots.end ()))
+        if ((m_roots.find (norms.first) != m_roots.end ()) && (m_roots.find (norms.second) != m_roots.end ()))
         {
-            //std::cout << "enum_first (roots[" << m_first_norm << "])" << std::endl;
-            enum_first (m_roots[m_first_norm]);
+            //std::cout << "enum_first (roots[" << norms.first << "])" << std::endl;
+	    threeTempVectors <T> tmp;
+	    tmp.sum = create_vector <T> (m_variables);
+	    // Assume the ResultMap is pristine
+	    std::vector<T*> result;
+            enum_first (m_roots[norms.first], tmp, norms, result);
+	    delete_vector <T> (tmp.sum);
             //std::cout << "enum_first finished." << std::endl;
+	    T* neg = create_vector<T> (m_variables);
+	    res[norms] = std::move(result);
+	    delete_vector (neg);
         }
     }
 
@@ -664,8 +695,8 @@ public:
         m_maxnorm = -1;
         m_current_variable = 0;
         m_variables = m_lattice->variables ();
-        m_sum_norm = m_first_norm = m_second_norm = 0;
-        m_sum_vector = m_first_vector = m_second_vector = NULL;
+        // m_sum_norm = m_first_norm = m_second_norm = 0;
+        // m_sum_vector = m_first_vector = m_second_vector = NULL;
         m_symmetric = true;
     }
 
@@ -679,8 +710,8 @@ public:
         m_maxnorm = -1;
         m_current_variable = 0;
         m_variables = m_lattice->variables ();
-        m_sum_norm = m_first_norm = m_second_norm = 0;
-        m_sum_vector = m_first_vector = m_second_vector = NULL;
+        // m_sum_norm = m_first_norm = m_second_norm = 0;
+        // m_sum_vector = m_first_vector = m_second_vector = NULL;
         m_symmetric = true;
     }
 
@@ -688,12 +719,16 @@ public:
     {
         m_controller = controller;
         controller->read_backup (stream);
+	// Backup functionality is broken in parallel mode!
+	T m_sum_norm = 0;
+	T m_first_norm = 0;
+//	T m_second_norm = 0;
         stream >> m_current_variable >> m_sum_norm >> m_first_norm >> m_symmetric;
         int vectors;
         stream >> vectors >> m_variables;
 
         m_maxnorm = -1;
-        m_second_norm = m_sum_norm - m_first_norm;
+//        m_second_norm = m_sum_norm - m_first_norm;
 
         VariableProperties <T> * properties = new VariableProperties <T> (m_variables, false, 0, 0);
         for (size_t i = 0; i < m_variables; i++)
@@ -744,12 +779,13 @@ public:
      */
     void compute (int backup_frequency = 0)
     {
+	firstrun = true;
         m_norms.clear ();
 
         m_backup_frequency = backup_frequency;
         m_backup_timer.reset ();
 
-        m_sum_vector = create_vector <T> (m_variables);
+        // m_sum_vector = create_vector <T> (m_variables);
 
 	//std::cout << "\n\nSTARTED ON " << m_current_variable << ", " << m_sum_norm << ", " << m_first_norm << std::endl;
 
@@ -763,7 +799,7 @@ public:
             //    break;
 
             // first run in this variable
-            if (m_sum_norm == 0)
+            if (firstrun)
             {
                 //std::cout << "\n\n\nLattice before choose:\n" << (*m_lattice) << "\nvectors = " << m_lattice->vectors () << std::endl;
                 int next = chooseNextVariable ();
@@ -780,11 +816,13 @@ public:
                 
                 //std::cout << "Lattice after choosing new component:\n" << (*m_lattice) << "\nMaxnorm = " << m_maxnorm << std::endl;
                 preprocess ();
+		firstrun=false;
 
                 //std::cout << "Lattice after preprocessing it:\n" << (*m_lattice) << "\nMaxnorm = " << m_maxnorm << std::endl;
             }
 
 	    create_trees ();
+	    std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
 
             // create norms
             m_norms.clear ();
@@ -797,60 +835,133 @@ public:
                 }
             }
 
-            // norm pairs
-            T old_sum = -1;
-	    auto i = m_norms.begin ();
-	    // scroll until old pair is reached
-	    if (m_sum_norm != 0)
-	    {
-		while (i->first.sum != m_sum_norm || i->first.first != m_first_norm)
-		    i++;
-		i++;
-		//std::cout << "Scrolled to " << i->first.first << " + " << (i->first.sum - i->first.first) << std::endl;
+	    std::cout << "Norm pairs to start with: ";
+	    for (auto it = m_norms.begin(); it != m_norms.end(); it++) {
+		std::cout << "(" << it->first.first << "," << it->first.second << "), ";
 	    }
+	    std::cout << std::endl;
 
-            for (; i != m_norms.end (); i++)
-            {
-                NormPair <T> pair = i->first;
+	    T max_norm = m_norms.rbegin()->first.sum;
+	    std::cout << "Maximum norm on first components:" << max_norm << "\n";
 
-                m_first_norm = pair.first;
-                m_second_norm = pair.second;
-                m_sum_norm = pair.sum;
+            // norm pairs
+            // T old_sum = -1;
 
-                if (old_sum != pair.sum)
-                {
-                    //std::cout << "completes: " << complete_calls << ", builds: " << count_builds << ", reductions: " << count_reduces << ", insertions: " << count_insertions << std::endl;
-		    if (m_controller != NULL)
-			m_controller->log_sum_start (m_current_variable+1, m_sum_norm, m_lattice->vectors ());
-                }
+ 	    T current_norm = 0;
+ 	    // The big job-loop
+ 	    while (current_norm < max_norm) {
+ 		current_norm++;
+ 		std::cout << "Now doing norm: "<< current_norm << "\n";
+ 		std::vector < std::future <void> > m_futures;
 
-		if (m_controller != NULL)
-		    m_controller->log_norm_start (m_current_variable+1, m_sum_norm, m_first_norm, m_lattice->vectors ());
+		for (auto it = m_norms.begin(); it != m_norms.end(); it++){
+		    if (it->first.sum == current_norm) {
+			std::cout << "Starting job :" << it->first.first << "," << it->first.second << "\n";
+			// complete (it->first, std::ref(m_resultMap));
+  			std::future<void> fut = std::async(
+  			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
+  			    &ExtendedPottier<T>::complete,
+			    this,
+  			    it->first,
+  			    std::ref(m_resultMap));
+			// fut.wait();
+			m_futures.push_back (std::move(fut));
+		    }
+		}
 
-                //complete_calls++;
-                complete ();
-                //if (m_backup_timer.get_elapsed_time () > 300)
-                //    exit (2);
+		// Synchronize:
+		std::cout << "Waiting for sync ... ";
+		std::cout.flush();
+		for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+		    it->wait();
+		std::cout << "Done.\n";
 
-		if (m_controller != NULL)
-		    m_controller->log_norm_end (m_current_variable+1, m_sum_norm, m_first_norm, m_lattice->vectors ());
-                
-                if (old_sum != pair.sum)
-                {
-		    if (m_controller != NULL)
-			m_controller->log_sum_end (m_current_variable+1, m_sum_norm, m_lattice->vectors ());
-                    old_sum = pair.sum;
-                }
-            
-                if (backup_frequency != 0 && m_backup_timer.get_elapsed_time () > backup_frequency)
-                {
-                    // Backup
-                    m_backup_timer.reset ();
-		    if (m_controller != NULL)
-			m_controller->backup_data (*m_lattice, m_current_variable, m_sum_norm, m_first_norm, m_symmetric);
-                }
-
-            }
+		// collecting results
+		threeTempVectors<T> tmp;
+		T *neg = create_vector<T> (m_variables);
+		for (auto it = m_norms.begin(); it != m_norms.end(); it++) {
+		    if (it->first.sum == current_norm) {
+			if (m_resultMap[it->first].size() > 0){
+			    std::cout << "Inserting: " << m_resultMap[it->first].size() << " results.\n";
+			    max_norm = it->first.sum * 2;
+			}
+			for (auto jt = m_resultMap[it->first].begin(); jt != m_resultMap[it->first].end(); jt++ ){
+			    bool isReducible = false;
+			    for (auto iter = m_roots.begin (); iter != m_roots.end(); iter++)
+			    {
+				// trick the reducer
+				tmp.sum = *jt;
+				if (enum_reducer (iter->second, tmp)) {
+				    isReducible = true;
+				    break;
+				}
+			    }
+			    if (!isReducible) {
+				insert_trees(*jt, it->first.sum);
+				// insert negative:
+				for (size_t i = 0; i < m_variables; i++){
+				    neg[i] = -(*jt)[i];
+				}
+				insert_trees(neg, it->first.sum);
+			    }
+			}
+		    }
+		}
+		delete_vector<T> (neg);
+	    } // looping the current norm
+		
+//	    auto i = m_norms.begin ();
+//            for (; i != m_norms.end (); i++)
+//            {
+//// 		std::cout << "\n Current norm status: " << std::endl;
+//// 		std::cout << "Number: " << m_norms.size() << std::endl;
+//// 		for (auto it = m_norms.begin(); it != m_norms.end(); it++) {
+//// 		    std::cout << it->first.sum << ", ";
+//// 		}
+//// 		std::cout << std::endl;
+//                NormPair <T> pair = i->first;
+//
+////		threeNorms<T> norms;
+////                norms.first = pair.first;
+////                norms.second = pair.second;
+////                norms.sum = pair.sum;
+//
+//                if (old_sum != pair.sum)
+//                {
+//                    //std::cout << "completes: " << complete_calls << ", builds: " << count_builds << ", reductions: " << count_reduces << ", insertions: " << count_insertions << std::endl;
+//		    if (m_controller != NULL)
+//			m_controller->log_sum_start (m_current_variable+1, pair.sum, m_lattice->vectors ());
+//                }
+//
+//		if (m_controller != NULL)
+//		    m_controller->log_norm_start (m_current_variable+1, pair.sum, pair.first, m_lattice->vectors ());
+//
+//		std::map <NormPair <T>, std::vector <T*> > r; // Locations to store result vectors
+//                //complete_calls++;
+//		complete (pair, r);
+//		
+//                //if (m_backup_timer.get_elapsed_time () > 300)
+//                //    exit (2);
+//
+//		if (m_controller != NULL)
+//		    m_controller->log_norm_end (m_current_variable+1, pair.sum, pair.first, m_lattice->vectors ());
+//                
+//                if (old_sum != pair.sum)
+//                {
+//		    if (m_controller != NULL)
+//			m_controller->log_sum_end (m_current_variable+1, pair.sum, m_lattice->vectors ());
+//                    old_sum = pair.sum;
+//                }
+//            
+//                if (backup_frequency != 0 && m_backup_timer.get_elapsed_time () > backup_frequency)
+//                {
+//                    // Backup
+//                    m_backup_timer.reset ();
+//		    if (m_controller != NULL)
+//			m_controller->backup_data (*m_lattice, m_current_variable, pair.sum, pair.first, m_symmetric);
+//                }
+//
+//            }
 
             //std::cout << "Lattice after generating minimals:\n" << (*m_lattice) << "\nMaxnorm = " << m_maxnorm << std::endl;
 
@@ -864,12 +975,12 @@ public:
 	    if (m_controller != NULL)
 		m_controller->log_variable_end (m_current_variable+1, m_lattice->vectors ());
 
-	    m_sum_norm = 0;
+	    firstrun = true;
         }
 
         //std::cout << "Finished with " << m_lattice->vectors () << " solutions." << std::endl;
 
-        delete_vector <T> (m_sum_vector);
+        // delete_vector <T> (m_sum_vector);
 
         m_lattice->sort_columns ();
     }

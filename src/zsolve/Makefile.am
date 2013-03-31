@@ -55,6 +55,7 @@ zsolveinclude_HEADERS = \
 	Lattice.hpp \
 	Algorithm.hpp \
 	ExtendedPottier.hpp \
+	ParallelPottier.hpp \
 	ParallelGraver.hpp \
 	Controller.hpp \
 	DefaultController.hpp \
