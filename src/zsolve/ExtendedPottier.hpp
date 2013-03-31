@@ -23,7 +23,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef _4ti2_zsolve__ExtendedPottier_
 #define _4ti2_zsolve__ExtendedPottier_
 
+#include <algorithm>
 #include <map>
+#include <future>
+
 #include "zsolve/Algorithm.hpp"
 #include "zsolve/BitSet.h"
 #include "zsolve/LinearSystem.hpp"
@@ -188,7 +191,7 @@ protected:
         insert_tree (m_roots[norm], vid, true);
     }
 
-    void enum_first (ValueTree <T> * tree, threeTempVectors<T>& tmp, NormPair<T>& norms, std::vector<T*>& resultDump)
+    void enum_first (ValueTree <T> * tree, threeTempVectors<T>& tmp, const NormPair<T>& norms, std::vector<T*>& resultDump)
     {
         if (tree->level < 0)
         {
@@ -217,7 +220,7 @@ protected:
         }
     }
 
-    void enum_second (ValueTree <T> * tree, threeTempVectors<T>& tmp, NormPair<T>& norms, std::vector<T*>& resultDump)
+    void enum_second (ValueTree <T> * tree, threeTempVectors<T>& tmp, const NormPair<T>& norms, std::vector<T*>& resultDump)
     {
         if (tree->level < 0) // arrived at leaf
         {
@@ -326,7 +329,7 @@ protected:
         return false;
     }
 
-    void build_sum (threeTempVectors<T>& tmp, NormPair<T>& norms, std::vector<T*>& resultDump)
+    void build_sum (threeTempVectors<T>& tmp, const NormPair<T>& norms, std::vector<T*>& resultDump)
     {
         // std::cout << "buildSum (";
         // print_vector (std::cout, tmp.first, m_variables);
@@ -638,7 +641,7 @@ protected:
         }
     }
 
-    void complete (NormPair<T>& norms, std::map<NormPair<T>, std::vector<T*> >& res)
+    void complete (const NormPair<T>& norms, std::map<NormPair<T>, std::vector<T*> >& res)
     {
 	if (m_controller != NULL)
 	    m_controller->log_status (m_current_variable+1, norms.sum, m_maxnorm, norms.first, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
@@ -819,6 +822,7 @@ public:
             }
 
 	    create_trees ();
+	    std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
 
             // create norms
             m_norms.clear ();
@@ -841,140 +845,123 @@ public:
 	    std::cout << "Maximum norm on first components:" << max_norm << "\n";
 
             // norm pairs
-            T old_sum = -1;
+            // T old_sum = -1;
 
-// 	    typedef _4ti2_zsolve_::NormPair< IntegerType > NP;
-// 	    typedef std::vector< NP > NPvector;
-// 	    NPvector jobs;
-// 
-// 	    T current_norm = 0;
-// 	    // The big job-loop
-// 	    while (current_norm < max_norm) {
-// 		current_norm++;
-// 		std::cout << "Now doing norm: "<< current_norm << "\n";
-// 		std::vector < std::future < VectorArray > > m_futures;
-// 		// std::vector < VectorArray > m_futures;
-// 		// find lowest norm jobs:
-// 		NPvector lowest_norm_jobs;
-// 		std::copy_if (jobs.begin(),
-// 			      jobs.end(),
-// 			      std::back_inserter(lowest_norm_jobs),
-// 			      [current_norm](const NP& np) -> bool 
-// 			      { return (np.sum == current_norm);} );
-// 		auto new_end = std::remove_if (jobs.begin(),
-// 					       jobs.end(),
-// 					       [current_norm](const NP& np) -> bool 
-// 					       { return (np.sum == current_norm);} );
-// 		jobs.erase (new_end, jobs.end());
-// 
-// 		for (auto it = lowest_norm_jobs.begin(); it != lowest_norm_jobs.end(); it++) {
-// 		    NormPair <T> pair = it->first;
-// 		    
-// 		    threeNorms<T> norms;
-// 		    norms.first = pair.first;
-// 		    norms.second = pair.second;
-// 		    norms.sum = pair.sum;
-// 
-// 		    std::cout << "Doing job :" << it->first << "," << it->second << "\n";
-// 		    std::future <> fut = std::async(
-// 			std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
-// 			complete,
-// 			norms)
-// 		m_futures.push_back (std::move(fut));
-// //		}
-// //		catch (std::system_error e) {
-// //		    std::cout << "Can't create threads :(, exiting.\n";
-// //		    std::exit (1);
-// //		}
-// 		// For debug purposes, wait for finish?
-// 		// fut.wait();
-// 	    } // if there are pairs of vectors in this job
-// 	} // for over lowest_degree_jobs
-// 	// Synchronize:
-//   	std::cout << "Waiting for sync ... ";
-// 	std::cout.flush();
-//   	for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
-//   	    it->wait();
-//   	std::cout << "Done.\n";
+ 	    T current_norm = 0;
+ 	    // The big job-loop
+ 	    while (current_norm < max_norm) {
+ 		current_norm++;
+ 		std::cout << "Now doing norm: "<< current_norm << "\n";
+ 		std::vector < std::future <void> > m_futures;
 
+		for (auto it = m_norms.begin(); it != m_norms.end(); it++){
+		    if (it->first.sum == current_norm) {
+			std::cout << "Starting job :" << it->first.first << "," << it->first.second << "\n";
+			// complete (it->first, std::ref(m_resultMap));
+  			std::future<void> fut = std::async(
+  			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
+  			    &ExtendedPottier<T>::complete,
+			    this,
+  			    it->first,
+  			    std::ref(m_resultMap));
+			// fut.wait();
+			m_futures.push_back (std::move(fut));
+		    }
+		}
 
-	    auto i = m_norms.begin ();
-            for (; i != m_norms.end (); i++)
-            {
-// 		std::cout << "\n Current norm status: " << std::endl;
-// 		std::cout << "Number: " << m_norms.size() << std::endl;
-// 		for (auto it = m_norms.begin(); it != m_norms.end(); it++) {
-// 		    std::cout << it->first.sum << ", ";
-// 		}
-// 		std::cout << std::endl;
-                NormPair <T> pair = i->first;
-
-//		threeNorms<T> norms;
-//                norms.first = pair.first;
-//                norms.second = pair.second;
-//                norms.sum = pair.sum;
-
-                if (old_sum != pair.sum)
-                {
-                    //std::cout << "completes: " << complete_calls << ", builds: " << count_builds << ", reductions: " << count_reduces << ", insertions: " << count_insertions << std::endl;
-		    if (m_controller != NULL)
-			m_controller->log_sum_start (m_current_variable+1, pair.sum, m_lattice->vectors ());
-                }
-
-		if (m_controller != NULL)
-		    m_controller->log_norm_start (m_current_variable+1, pair.sum, pair.first, m_lattice->vectors ());
-
-		std::map <NormPair <T>, std::vector <T*> > r; // Locations to store result vectors
-                //complete_calls++;
-		complete (pair, r);
+		// Synchronize:
+		std::cout << "Waiting for sync ... ";
+		std::cout.flush();
+		for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
+		    it->wait();
+		std::cout << "Done.\n";
 
 		// collecting results
-		for (auto it = r[pair].begin(); it != r[pair].end(); it++ ){
-		    bool isReducible = false;
-		    threeTempVectors<T> tmp;
-		    T *neg = create_vector<T> (m_variables);
-		    for (auto iter = m_roots.begin (); iter != m_roots.end() && iter->first <= pair.sum; iter++)
-		    {
-			// trick the reducer
-			tmp.sum = *it;
-			if (enum_reducer (iter->second, tmp)) {
-			    isReducible = true;
-			    break;
+		threeTempVectors<T> tmp;
+		T *neg = create_vector<T> (m_variables);
+		for (auto it = m_norms.begin(); it != m_norms.end(); it++) {
+		    if (it->first.sum == current_norm) {
+			if (m_resultMap[it->first].size() > 0){
+			    std::cout << "Inserting: " << m_resultMap[it->first].size() << " results.\n";
+			    max_norm = it->first.sum * 2;
+			}
+			for (auto jt = m_resultMap[it->first].begin(); jt != m_resultMap[it->first].end(); jt++ ){
+			    bool isReducible = false;
+			    for (auto iter = m_roots.begin (); iter != m_roots.end(); iter++)
+			    {
+				// trick the reducer
+				tmp.sum = *jt;
+				if (enum_reducer (iter->second, tmp)) {
+				    isReducible = true;
+				    break;
+				}
+			    }
+			    if (!isReducible) {
+				insert_trees(*jt, it->first.sum);
+				// insert negative:
+				for (size_t i = 0; i < m_variables; i++){
+				    neg[i] = -(*jt)[i];
+				}
+				insert_trees(neg, it->first.sum);
+			    }
 			}
 		    }
-		    if (!isReducible) {
-			insert_trees(*it, pair.sum);
-			// insert negative:
-			for (size_t i = 0; i < m_variables; i++){
-			    neg[i] = -(*it)[i];
-			}
-			insert_trees(neg, pair.sum);
-		    };
-		    delete_vector<T> (neg);
 		}
+		delete_vector<T> (neg);
+	    } // looping the current norm
 		
-                //if (m_backup_timer.get_elapsed_time () > 300)
-                //    exit (2);
-
-		if (m_controller != NULL)
-		    m_controller->log_norm_end (m_current_variable+1, pair.sum, pair.first, m_lattice->vectors ());
-                
-                if (old_sum != pair.sum)
-                {
-		    if (m_controller != NULL)
-			m_controller->log_sum_end (m_current_variable+1, pair.sum, m_lattice->vectors ());
-                    old_sum = pair.sum;
-                }
-            
-                if (backup_frequency != 0 && m_backup_timer.get_elapsed_time () > backup_frequency)
-                {
-                    // Backup
-                    m_backup_timer.reset ();
-		    if (m_controller != NULL)
-			m_controller->backup_data (*m_lattice, m_current_variable, pair.sum, pair.first, m_symmetric);
-                }
-
-            }
+//	    auto i = m_norms.begin ();
+//            for (; i != m_norms.end (); i++)
+//            {
+//// 		std::cout << "\n Current norm status: " << std::endl;
+//// 		std::cout << "Number: " << m_norms.size() << std::endl;
+//// 		for (auto it = m_norms.begin(); it != m_norms.end(); it++) {
+//// 		    std::cout << it->first.sum << ", ";
+//// 		}
+//// 		std::cout << std::endl;
+//                NormPair <T> pair = i->first;
+//
+////		threeNorms<T> norms;
+////                norms.first = pair.first;
+////                norms.second = pair.second;
+////                norms.sum = pair.sum;
+//
+//                if (old_sum != pair.sum)
+//                {
+//                    //std::cout << "completes: " << complete_calls << ", builds: " << count_builds << ", reductions: " << count_reduces << ", insertions: " << count_insertions << std::endl;
+//		    if (m_controller != NULL)
+//			m_controller->log_sum_start (m_current_variable+1, pair.sum, m_lattice->vectors ());
+//                }
+//
+//		if (m_controller != NULL)
+//		    m_controller->log_norm_start (m_current_variable+1, pair.sum, pair.first, m_lattice->vectors ());
+//
+//		std::map <NormPair <T>, std::vector <T*> > r; // Locations to store result vectors
+//                //complete_calls++;
+//		complete (pair, r);
+//		
+//                //if (m_backup_timer.get_elapsed_time () > 300)
+//                //    exit (2);
+//
+//		if (m_controller != NULL)
+//		    m_controller->log_norm_end (m_current_variable+1, pair.sum, pair.first, m_lattice->vectors ());
+//                
+//                if (old_sum != pair.sum)
+//                {
+//		    if (m_controller != NULL)
+//			m_controller->log_sum_end (m_current_variable+1, pair.sum, m_lattice->vectors ());
+//                    old_sum = pair.sum;
+//                }
+//            
+//                if (backup_frequency != 0 && m_backup_timer.get_elapsed_time () > backup_frequency)
+//                {
+//                    // Backup
+//                    m_backup_timer.reset ();
+//		    if (m_controller != NULL)
+//			m_controller->backup_data (*m_lattice, m_current_variable, pair.sum, pair.first, m_symmetric);
+//                }
+//
+//            }
 
             //std::cout << "Lattice after generating minimals:\n" << (*m_lattice) << "\nMaxnorm = " << m_maxnorm << std::endl;
 
