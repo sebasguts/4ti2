@@ -609,14 +609,11 @@ protected:
             //std::cout << "enum_first (roots[" << norms.first << "])" << std::endl;
 	    threeTempVectors <T> tmp;
 	    tmp.sum = create_vector <T> (m_variables);
-	    // Assume the ResultMap is pristine
 	    std::vector<T*> result;
             enum_first (m_roots[norms.first], tmp, norms, result);
 	    delete_vector <T> (tmp.sum);
             //std::cout << "enum_first finished." << std::endl;
-	    T* neg = create_vector<T> (m_variables);
 	    res[norms] = std::move(result);
-	    delete_vector (neg);
         }
     }
 
@@ -783,7 +780,7 @@ public:
  		std::cout << "Now doing norm: "<< current_norm << "\n";
  		std::vector < std::future <void> > m_futures;
 
-		for (auto it = m_norms.begin(); it != m_norms.end(); it++){
+		for (auto it = m_norms.cbegin(); it != m_norms.cend(); it++){
 		    if (it->first.sum == current_norm) {
 			std::cout << "Starting job :" << it->first.first << "," << it->first.second << "\n";
 			// complete (it->first, std::ref(m_resultMap));
@@ -811,7 +808,7 @@ public:
 		// collecting results
 		UniqueVectorsHash<T> *unique_res = new UniqueVectorsHash<T> (m_variables);
 		T *neg = create_vector<T> (m_variables);
-		for (auto it = m_norms.begin(); it != m_norms.end(); it++) {
+		for (auto it = m_norms.cbegin(); it != m_norms.cend(); it++) {
 		    if (it->first.sum == current_norm) {
 			if (m_resultMap[it->first].size() > 0){
 			    std::cout << "Inserting: " << m_resultMap[it->first].size() << " results.\n";
@@ -819,19 +816,24 @@ public:
 			}
 			for (auto jt = m_resultMap[it->first].begin(); jt != m_resultMap[it->first].end(); jt++ ){
 			    if (!unique_res->is_present(*jt)) {
+				// jt need not be deleted in this branch, can be reused
 				for (size_t i = 0; i < m_variables; i++){
 				    neg[i] = -(*jt)[i];
 				}
+				// This copies *jt
 				insert_trees(*jt, it->first.sum);
+				// This pilfers *jt.
 				unique_res->insert(*jt);
 				insert_trees(neg, it->first.sum);
-				unique_res->insert(neg);
+				unique_res->insert_copy(neg);
 			    }
-			    delete_vector (*jt);
+			    else {
+				delete_vector (*jt);
+			    }
 			}
 		    }
 		}
-		delete_vector<T> (neg);
+		delete_vector (neg);
 		delete unique_res;
 	    } // looping the current norm
 		
