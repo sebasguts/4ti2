@@ -29,12 +29,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <zsolve/Vector.hpp>
 
 // Implements a set of zsolve vectors using std::unordered_set
-// Unfortunately zsolve vectors don't save their length.  That's
-// why we have to wrap them here:
+
+// see http://stackoverflow.com/questions/15728266/fast-ways-to-remove-duplicates-from-a-list-of-integer-vectors
+// for some discussion on using hashing to extract unique integer vectors.
 
 namespace _4ti2_zsolve_ 
 {
 
+// zsolve vectors don't save their length.  That's why we wrap them.
 template <typename T>
 struct WrappedVector {
     T *p;
@@ -43,8 +45,6 @@ struct WrappedVector {
 
 template <typename T>
 struct VectorHash {
-    // see http://stackoverflow.com/questions/15728266/fast-ways-to-remove-duplicates-from-a-list-of-integer-vectors
-    // for some discussion on this subject.
     size_t operator()(const WrappedVector<T>& v) const 
     {
 	size_t result = 2166136261U;
@@ -58,8 +58,6 @@ struct VectorHash {
 // For gmp integers we just use the overflowed blocks for hashing
 template <>
 struct VectorHash <mpz_class> {
-    // see http://stackoverflow.com/questions/15728266/fast-ways-to-remove-duplicates-from-a-list-of-integer-vectors
-    // for some discussion on this subject.
     size_t operator()(const WrappedVector<mpz_class>& v) const 
     {
 	size_t result = 2166136261U;
@@ -69,8 +67,6 @@ struct VectorHash <mpz_class> {
 	return result;
     }
 };
-
-
 
 template <typename T>
 struct VectorEqual {
@@ -99,11 +95,14 @@ private:
     size_t length;
 
 public:
-//    void insert (const WrappedVector<T>& v) {
-//	hash_table.insert(v);
-//    }
-
     void insert (T *v) {
+	WrappedVector<T> w;
+	w.p = v;
+	w.length = length;
+	hash_table.insert (w);
+    }
+
+    void insert_copy (T *v) {
 	WrappedVector<T> w;
 	w.p = copy_vector<T> (v, length);
 	w.length = length;
