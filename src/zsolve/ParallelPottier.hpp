@@ -25,6 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #include <algorithm>
 #include <map>
+#include <mutex>
 #include <future>
 
 #include "zsolve/Algorithm.hpp"
@@ -65,6 +66,10 @@ protected:
 
     NormMap m_norms;
     RootMap m_roots; ///< roots of valuetrees
+
+    std::mutex m_resultMapMutex;
+    std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
+
 
     Timer m_backup_timer; ///< timer
     int m_backup_frequency; ///< frequency for backup
@@ -596,7 +601,7 @@ protected:
         }
     }
 
-    void complete (const NormPair<T>& norms, std::map<NormPair<T>, std::vector<T*> >& res)
+    void complete (const NormPair<T>& norms)
     {
 	if (m_controller != NULL)
 	    m_controller->log_status (m_current_variable+1, norms.sum, m_maxnorm, norms.first, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
@@ -613,7 +618,9 @@ protected:
             enum_first (m_roots[norms.first], tmp, norms, result);
 	    delete_vector <T> (tmp.sum);
             //std::cout << "enum_first finished." << std::endl;
-	    res[norms] = std::move(result);
+	    m_resultMapMutex.lock();
+	    m_resultMap[norms] = std::move(result);
+	    m_resultMapMutex.unlock();
         }
     }
 
@@ -748,7 +755,6 @@ public:
 	    preprocess ();
 	    
 	    create_trees ();
-	    std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
 
             // create norms
             m_norms.clear ();
@@ -783,13 +789,12 @@ public:
 		for (auto it = m_norms.cbegin(); it != m_norms.cend(); it++){
 		    if (it->first.sum == current_norm) {
 			std::cout << "Starting job :" << it->first.first << "," << it->first.second << "\n";
-			// complete (it->first, std::ref(m_resultMap));
+			// complete (it->first);
   			std::future<void> fut = std::async(
   			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
   			    &ParallelPottier<T>::complete,
 			    this,
-  			    it->first,
-  			    std::ref(m_resultMap));
+  			    it->first);
 			// fut.wait();
 			m_futures.push_back (std::move(fut));
 		    }
