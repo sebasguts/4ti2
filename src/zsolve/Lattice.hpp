@@ -113,9 +113,12 @@ public:
         VariableProperties <T> :: swap (a, b);
     }
 
+    // Run Gaussian elimination on the lattice.  This brings the
+    // lattice generating matrix into hermite normal form and removes
+    // zero rows.
     void reduce_gaussian ()
     {
-        for (size_t column = 0; column < VectorArray <T> :: m_variables; column++)
+        for (size_t column = 0; column < VectorArray <T> :: m_variables && column <VectorArray <T> :: m_data.size(); column++)
         {
             int current_index;
             T current_value;
@@ -168,6 +171,7 @@ public:
             }
         }
 
+	// This block removes any remaining zero rows
         for (size_t i = 0; i < VectorArray <T> :: m_data.size(); i++)
         {
             if (is_zero_vector (VectorArray <T> :: m_data[i], VectorArray <T> :: m_variables))
