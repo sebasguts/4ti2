@@ -28,9 +28,9 @@ AM_CXXFLAGS = -I$(srcdir)/..
 # 4ti2 needs the next option to access maximum values of integer types.
 AM_CXXFLAGS += -D__STDC_LIMIT_MACROS
 # The optimisation flags.
-#AM_CXXFLAGS += -DNDEBUG
+AM_CXXFLAGS += -DNDEBUG
 # Uncomment the next line for debugging.
-#AM_CXXFLAGS += -g
+#AM_CXXFLAGS += -ggdb
 # Uncomment the next line for profiling.
 #AM_CXXFLAGS += -pg
 
