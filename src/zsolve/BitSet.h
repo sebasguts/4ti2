@@ -29,9 +29,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 namespace _4ti2_zsolve_
 {
 
-//typedef uint32_t BlockType;	
+typedef uint32_t BlockType;	
 
-typedef unsigned long BlockType;
+// typedef unsigned long BlockType;
 
 #define ALL_ZEROS_BLOCK ((BlockType)0)
 #define ALL_ONES_BLOCK (~(BlockType)0)
