@@ -783,7 +783,7 @@ public:
  	    // The big job-loop
  	    while (current_norm < m_maxnorm) {
  		current_norm++;
- 		std::cout << "Now doing norm: "<< current_norm << "\n";
+ 		std::cout << "Now doing norm "<< current_norm << " of " << m_maxnorm << " for variable " << m_current_variable+1 << " of " << m_variables << std::endl;
  		std::vector < std::future <void> > m_futures;
 
 		for (auto it = m_norms.cbegin(); it != m_norms.cend(); it++){
