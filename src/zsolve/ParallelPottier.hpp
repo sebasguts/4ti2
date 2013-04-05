@@ -383,21 +383,6 @@ protected:
             if (enum_reducer (iter->second, tmp))
                 return;
         }
-/*        for (T i = 0; i <= norm/2; i++)
-        {
-            if (i <= m_maxnorm && m_roots.find (i) != m_roots.end())
-            {
-                //std::cout << "enum_reducer (roots[" << i << "])" << std::endl;
-                if (enum_reducer (m_roots[i]))
-                    return;
-            }
-        } */
-        if (m_roots.find (norms.sum) != m_roots.end ())
-        {
-            //std::cout << "enum_reducer (roots[" << norm << "])" << std::endl;
-            if (enum_reducer (m_roots[norms.sum], tmp))
-                return;
-        }
 
 	// Delegate clean-up to receiver of the resultDump
 	resultDump.push_back(copy_vector<T> (tmp.sum, m_variables));
