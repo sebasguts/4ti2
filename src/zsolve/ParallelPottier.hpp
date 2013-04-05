@@ -249,15 +249,29 @@ protected:
 		    }
 		    enum_second_job<T> *job = &(m_jobs[job_slot]);
 		    job->temp_vectors.first = first;
-		    job->fut = // move implicit because the future is a return value
-			std::async(
-  			    std::launch::async,
-  			    &ParallelPottier<T>::enum_second,
-			    this,
-			    m_roots[norms.second], 
-			    job->temp_vectors,
-			    norms,
-			    std::ref(*(job->result_vector)));
+		    std::future<void> fut;
+		    // We do start many new threads in this program
+		    // and once in a while this fails.  In this case,
+		    // just wait a little and try again.
+		    bool start_success = false;
+		    while (!start_success) {
+			try {
+			    fut = std::async(
+				std::launch::async,
+				&ParallelPottier<T>::enum_second,
+				this,
+				m_roots[norms.second], 
+				job->temp_vectors,
+				norms,
+				std::ref(*(job->result_vector)));
+			    start_success = true;
+			}
+			catch (std::system_error e){
+			    std::cout << "Failed to launch a new thread, will keep trying ..." << std::endl;
+			    start_success = false;
+			}
+		    }
+		    job->fut = std::move (fut);
 		    m_jobsFree[job_slot]=false;
 		}
             }
