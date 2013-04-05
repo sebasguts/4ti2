@@ -192,19 +192,50 @@ protected:
     {
         if (tree->level < 0)
         {
+	    std::vector<T*> *current_result_vector;
+	    std::vector < std::vector<T*> * > resultDumpDump;
+	    std::vector < T* > vectors_to_clean;
+	    std::vector < std::future <void> > futures;
             for (size_t i = 0; i < tree->vector_indices.size(); i++)
             {
-                tmp.first = (*m_lattice)[tree->vector_indices[i]];
+		threeTempVectors<T> tmp2;
+                tmp2.first = (*m_lattice)[tree->vector_indices[i]];
                 //std::cout << "enum_first enumerated [";
                 //print_vector (std::cout, m_first_vector, m_variables);
                 //std::cout << "]" << std::endl;
-                if (tmp.first[m_current_variable] > 0)
-                    enum_second (m_roots[norms.second], tmp, norms, resultDump);
+                if (tmp2.first[m_current_variable] > 0) {
+		    // To run this second enumeration asynchronously,
+		    // enum second needs its own result dump and tmp
+		    // vectors.
+		    tmp2.sum = create_vector<T> (m_variables);
+		    vectors_to_clean.push_back (tmp2.sum);
+		    current_result_vector = new std::vector<T*>;
+		    resultDumpDump.push_back (current_result_vector);
+		    futures.push_back (
+			std::async(
+  			    std::launch::async,
+  			    &ParallelPottier<T>::enum_second,
+			    this,
+			    m_roots[norms.second], 
+			    tmp2, // Note: There is a cool implicit trick here: This is passed as a copy, and will fail if passed by reference!
+			    norms,
+			    std::ref(*current_result_vector)));
+		}
             }
-	    // Let's comment out this branch, it looks like dead code
-            // if (tree->level >= 0) {
-            //     enum_first (tree, tmp, norms, resultDump);
-	    // }
+	    // std::cout << "Started " << futures.size() << " parallel enum_second runs" << std::endl;
+	    // Wait for everybody to finish, then join the vectors and store them in the resultDump:
+	    for (auto it = futures.begin(); it != futures.end(); it++ ){
+		it->wait();
+	    }
+	    for (auto it = resultDumpDump.begin(); it != resultDumpDump.end(); it++){
+		for (auto jt = (*it)->begin(); jt != (*it)->end(); jt++){
+		    resultDump.push_back(*jt);
+		}
+		delete *it;
+	    }
+	    for (auto it = vectors_to_clean.begin(); it != vectors_to_clean.end(); it++){
+		delete_vector (*it);
+	    }
         }
         else
         {
