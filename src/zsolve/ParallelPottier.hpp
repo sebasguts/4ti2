@@ -23,7 +23,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef _4ti2_zsolve__ParallelPottier_
 #define _4ti2_zsolve__ParallelPottier_
 
+#define NUMJOBS 20
+
 #include <algorithm>
+#include <chrono>
 #include <map>
 #include <mutex>
 #include <future>
@@ -48,6 +51,13 @@ struct threeTempVectors {
     T *sum;
 };
 
+template <typename T>
+struct enum_second_job {
+    threeTempVectors<T> temp_vectors;
+    std::future <void> fut;
+    std::vector <T*> *result_vector;
+};
+
 template <typename T> class Controller;
 
 template <typename T> 
@@ -70,6 +80,8 @@ protected:
     std::mutex m_resultMapMutex;
     std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
 
+    enum_second_job<T> m_jobs[NUMJOBS];
+    bool m_jobsFree[NUMJOBS];
 
     Timer m_backup_timer; ///< timer
     int m_backup_frequency; ///< frequency for backup
@@ -188,63 +200,76 @@ protected:
         insert_tree (m_roots[norm], vid, true);
     }
 
-    void enum_first (ValueTree <T> * tree, threeTempVectors<T>& tmp, const NormPair<T>& norms, std::vector<T*>& resultDump)
+    int wait_a_little (std::vector<T*>& results) { // returns job id.
+	int empty_job_id = -1;
+	while (empty_job_id == -1) {
+	    for (uint i = 0; i < NUMJOBS; i++){
+		if (m_jobsFree[i]) // good, just use i
+		    return i;
+		// Contrary to the standard, wait_for returns a bool.  Let's assume it means ready or not ready.
+		// std::future_status status = m_jobs[i].fut.wait_for(std::chrono::seconds(1));
+		bool status_ready = m_jobs[i].fut.wait_for(std::chrono::seconds(0));
+		if (status_ready) {
+		    // This job is ready
+		    for (auto it = m_jobs[i].result_vector->begin(); it != m_jobs[i].result_vector->end(); it++){
+			results.push_back(*it);
+		    }
+		    m_jobs[i].result_vector->clear();
+		    m_jobsFree[i] = true;
+		    empty_job_id = i;
+		}
+	    }
+	    if (empty_job_id==-1) 	// No job was ready
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
+	return empty_job_id;
+    }
+
+    void enum_first (ValueTree <T> * tree, const NormPair<T>& norms, std::vector<T*>& results)
     {
         if (tree->level < 0)
         {
-	    std::vector<T*> *current_result_vector;
-	    std::vector < std::vector<T*> * > resultDumpDump;
-	    std::vector < T* > vectors_to_clean;
-	    std::vector < std::future <void> > futures;
+	    // enum_second_job<T> *job;
+
+// 	    std::vector<T*> *current_result_vector;
+// 	    std::vector < std::vector<T*> * > resultDumpDump;
+// 	    std::vector < T* > vectors_to_clean;
+// 	    std::vector < std::future <void> > futures;
             for (size_t i = 0; i < tree->vector_indices.size(); i++)
             {
-		threeTempVectors<T> tmp2;
-                tmp2.first = (*m_lattice)[tree->vector_indices[i]];
+		T *first = (*m_lattice)[tree->vector_indices[i]];
                 //std::cout << "enum_first enumerated [";
                 //print_vector (std::cout, m_first_vector, m_variables);
                 //std::cout << "]" << std::endl;
-                if (tmp2.first[m_current_variable] > 0) {
-		    // To run this second enumeration asynchronously,
-		    // enum second needs its own result dump and tmp
-		    // vectors.
-		    tmp2.sum = create_vector<T> (m_variables);
-		    vectors_to_clean.push_back (tmp2.sum);
-		    current_result_vector = new std::vector<T*>;
-		    resultDumpDump.push_back (current_result_vector);
-		    futures.push_back (
+                if (first[m_current_variable] > 0) {
+		    int job_slot = wait_a_little(results);
+		    if (job_slot < 0 || job_slot >= NUMJOBS) {
+			std::cout << "an error occurred\n";
+			exit(1);
+		    }
+		    enum_second_job<T> *job = &(m_jobs[job_slot]);
+		    job->temp_vectors.first = first;
+		    job->fut = // move implicit because the future is a return value
 			std::async(
   			    std::launch::async,
   			    &ParallelPottier<T>::enum_second,
 			    this,
 			    m_roots[norms.second], 
-			    tmp2, // Note: There is a cool implicit trick here: This is passed as a copy, and will fail if passed by reference!
+			    job->temp_vectors,
 			    norms,
-			    std::ref(*current_result_vector)));
+			    std::ref(*(job->result_vector)));
+		    m_jobsFree[job_slot]=false;
 		}
             }
-	    // std::cout << "Started " << futures.size() << " parallel enum_second runs" << std::endl;
-	    // Wait for everybody to finish, then join the vectors and store them in the resultDump:
-	    for (auto it = futures.begin(); it != futures.end(); it++ ){
-		it->wait();
-	    }
-	    for (auto it = resultDumpDump.begin(); it != resultDumpDump.end(); it++){
-		for (auto jt = (*it)->begin(); jt != (*it)->end(); jt++){
-		    resultDump.push_back(*jt);
-		}
-		delete *it;
-	    }
-	    for (auto it = vectors_to_clean.begin(); it != vectors_to_clean.end(); it++){
-		delete_vector (*it);
-	    }
         }
         else
         {
             if (tree->zero != NULL)
-                enum_first (tree->zero, tmp, norms, resultDump);
+                enum_first (tree->zero, norms, results);
             for (size_t i = 0; i < tree->pos.size (); i++)
-                enum_first (tree->pos[i]->sub_tree, tmp, norms, resultDump);
+                enum_first (tree->pos[i]->sub_tree, norms, results);
             for (size_t i = 0; i < tree->neg.size (); i++)
-                enum_first (tree->neg[i]->sub_tree, tmp, norms, resultDump);
+                enum_first (tree->neg[i]->sub_tree, norms, results);
         }
     }
 
@@ -627,16 +652,34 @@ protected:
 
         if ((m_roots.find (norms.first) != m_roots.end ()) && (m_roots.find (norms.second) != m_roots.end ()))
         {
+	    for (int i = 0; i < NUMJOBS; i++){
+		m_jobsFree[i] = true;
+		m_jobs[i].temp_vectors.sum = create_vector <T> (m_variables);
+		m_jobs[i].result_vector = new std::vector<T*>;
+	    }
             //std::cout << "enum_first (roots[" << norms.first << "])" << std::endl;
-	    threeTempVectors <T> tmp;
-	    tmp.sum = create_vector <T> (m_variables);
 	    std::vector<T*> result;
-            enum_first (m_roots[norms.first], tmp, norms, result);
-	    delete_vector <T> (tmp.sum);
+	    // The following call starts a lot of jobs:
+            enum_first (m_roots[norms.first], norms, result);
             //std::cout << "enum_first finished." << std::endl;
+
+	    // All jobs are scheduled now.  Wait for all of them to finish.
+	    for (int i = 0; i < NUMJOBS; i++){
+		if (m_jobsFree[i])
+		    continue;
+		m_jobs[i].fut.wait();
+		for (auto it = m_jobs[i].result_vector->begin(); it != m_jobs[i].result_vector->end(); it++){
+		    result.push_back (*it);
+		}
+	    }
+
 	    m_resultMapMutex.lock();
 	    m_resultMap[norms] = std::move(result);
 	    m_resultMapMutex.unlock();
+	    for (int i = 0; i < NUMJOBS; i++){
+		delete_vector<T> (m_jobs[i].temp_vectors.sum);
+		delete m_jobs[i].result_vector;
+	    }
         }
     }
 
@@ -805,14 +848,15 @@ public:
 		for (auto it = m_norms.cbegin(); it != m_norms.cend(); it++){
 		    if (it->first.sum == current_norm) {
 			std::cout << "Starting job :" << it->first.first << "," << it->first.second << "\n";
-			// complete (it->first);
-  			std::future<void> fut = std::async(
-  			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
-  			    &ParallelPottier<T>::complete,
-			    this,
-  			    it->first);
-			// fut.wait();
-			m_futures.push_back (std::move(fut));
+			complete (it->first);
+//  			std::future<void> fut = std::async(
+//  			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
+//  			    &ParallelPottier<T>::complete,
+//			    this,
+//  			    it->first);
+//			// This parallelization must be disabled until the enum_second_job pointer array is norm_job specific.
+//			fut.wait();
+//			m_futures.push_back (std::move(fut));
 		    }
 		}
 
