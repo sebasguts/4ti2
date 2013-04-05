@@ -268,6 +268,8 @@ protected:
 			}
 			catch (std::system_error e){
 			    std::cout << "Failed to launch a new thread, will keep trying ..." << std::endl;
+			    // twice per second
+			    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 			    start_success = false;
 			}
 		    }
