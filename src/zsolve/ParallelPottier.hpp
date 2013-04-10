@@ -31,6 +31,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #include <mutex>
 #include <future>
 
+#include <time.h>
+
 #include "zsolve/Algorithm.hpp"
 #include "zsolve/BitSet.h"
 #include "zsolve/LinearSystem.hpp"
@@ -824,9 +826,12 @@ public:
 
 		for (auto it = m_norms.cbegin(); it != m_norms.cend(); it++){
 		    if (it->first.sum == current_norm) {
-			std::cout << "Starting job :" << it->first.first << "," << it->first.second << "\n";
+			std::cout <<  "Starting norm Pair " << it->first.first << "," << it->first.second << "\n";
 			m_currentNormPair = it->first;
 			complete ();
+			time_t rawtime;
+			time (&rawtime);
+			std::cout << "Done at " << ctime(&rawtime);
 		    }
 		}
 
@@ -856,6 +861,8 @@ public:
 			delete_vector (*jt);
 		    }
 		}
+		if (unique_res->size() > 0)
+		    std::cout << "Inserted " << unique_res->size() << " unique vectors (including negatives)." << std::endl;
 		delete_vector (neg);
 		m_current_norm_results.clear();
 		delete unique_res;

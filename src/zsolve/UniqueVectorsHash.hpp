@@ -121,6 +121,10 @@ public:
 	return (hash_table.count(v) > 0);
     }
 
+    size_t size() {
+	return hash_table.size();
+    }
+
     void dump() {
 	std::cout << "Dump: \n";
 	for (auto it = hash_table.begin(); it != hash_table.end(); it++){
