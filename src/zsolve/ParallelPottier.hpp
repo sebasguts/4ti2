@@ -798,6 +798,8 @@ public:
 	    
 	    create_trees ();
 
+	    m_normSizes.clear();
+
             // create norms
             m_norms.clear ();
             for (auto i = m_roots.begin (); i != m_roots.end (); i++)
