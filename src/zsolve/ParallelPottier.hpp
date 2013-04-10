@@ -68,6 +68,7 @@ protected:
     Lattice <T> * m_lattice; ///< Integer lattice that contains the solutions
 
     T m_maxnorm; ///< current maximum norm
+    T m_maxtotalnorm; ///< true maximum norm (including last component)
     size_t m_current_variable; ///< current component
     size_t m_variables; ///< components
 
@@ -77,6 +78,8 @@ protected:
     // std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
     std::vector <T*> m_current_norm_results;
     NormPair<T> m_currentNormPair;
+
+    std::map <T, T> m_normSizes;
 
     enum_second_job<T> m_jobs[NUMJOBS];
     bool m_jobsFree[NUMJOBS];
@@ -813,6 +816,11 @@ public:
 	    std::cout << std::endl;
 
 	    m_maxnorm = m_norms.rbegin()->first.sum;
+	    // On the last run we keep track of total norms:
+	    if (m_current_variable == m_variables-1)
+		m_maxtotalnorm = 0;
+	    else 
+		m_maxtotalnorm = -1;
  	    std::cout << "Maximum norm on first components:" << m_maxnorm << "\n";
 
             // norm pairs
@@ -823,6 +831,10 @@ public:
  	    while (current_norm < m_maxnorm) {
  		current_norm++;
  		std::cout << "Now doing norm "<< current_norm << " of " << m_maxnorm << " for variable " << m_current_variable+1 << " of " << m_variables << std::endl;
+		std::cout << "Vectors in each (truncated) norm :" << std::endl;
+		for (auto it = m_normSizes.begin(); it != m_normSizes.end(); it++)
+		    std::cout << it->first << ": " << it->second << std::endl;
+		std::cout << "=========================" << std::endl;
 
 		for (auto it = m_norms.cbegin(); it != m_norms.cend(); it++){
 		    if (it->first.sum == current_norm) {
@@ -835,8 +847,8 @@ public:
 		    }
 		}
 
-		if (m_controller != NULL)
-		    m_controller->log_status (m_current_variable+1, current_norm, m_maxnorm, 0, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
+		// if (m_controller != NULL)
+		// m_controller->log_status (m_current_variable+1, current_norm, m_maxnorm, 0, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
 		UniqueVectorsHash<T> *unique_res = new UniqueVectorsHash<T> (m_variables);
 		T *neg = create_vector<T> (m_variables);
 		// collecting results
@@ -846,6 +858,17 @@ public:
 		}
 		for (auto jt = m_current_norm_results.begin(); jt != m_current_norm_results.end(); jt++ ){
 		    if (!unique_res->is_present(*jt)) {
+			// Check if a new maximum norm is found, but only for last variable (signalled by m_maxtotalnorm >= 0):
+			if (m_maxtotalnorm >= 0) {
+			    T norm = current_norm + abs((*jt)[m_variables-1]);
+			    if (norm > m_maxtotalnorm){
+				std::cout << "New maximum total norm: "<< norm << std::endl;
+				std::cout << "Witness (with permuted entries): ";
+				print_vector (std::cout, *jt, m_variables);
+				std::cout << std::endl;
+				m_maxtotalnorm = norm;
+			    }
+			}
 			// jt need not be deleted in this branch, can be reused
 			for (size_t i = 0; i < m_variables; i++){
 			    neg[i] = -(*jt)[i];
@@ -861,8 +884,11 @@ public:
 			delete_vector (*jt);
 		    }
 		}
-		if (unique_res->size() > 0)
+		if (unique_res->size() > 0) {
 		    std::cout << "Inserted " << unique_res->size() << " unique vectors (including negatives)." << std::endl;
+		    std::cout << "Total number of vectors stored : " << m_lattice->num_vectors() << std::endl;
+		    m_normSizes [current_norm] = unique_res->size();
+		}
 		delete_vector (neg);
 		m_current_norm_results.clear();
 		delete unique_res;
