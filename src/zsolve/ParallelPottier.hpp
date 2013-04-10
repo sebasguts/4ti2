@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef _4ti2_zsolve__ParallelPottier_
 #define _4ti2_zsolve__ParallelPottier_
 
-#define NUMJOBS 100
+#define NUMJOBS 5
 
 #include <algorithm>
 #include <chrono>
@@ -45,15 +45,10 @@ namespace _4ti2_zsolve_
 {
 
 template <typename T>
-struct threeTempVectors {
+struct enum_second_job {
     T *first;
     T *second;
     T *sum;
-};
-
-template <typename T>
-struct enum_second_job {
-    threeTempVectors<T> temp_vectors;
     std::future <void> fut;
     std::vector <T*> *result_vector;
 };
@@ -79,6 +74,7 @@ protected:
 
     // std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
     std::vector <T*> m_current_norm_results;
+    NormPair<T> m_currentNormPair;
 
     enum_second_job<T> m_jobs[NUMJOBS];
     bool m_jobsFree[NUMJOBS];
@@ -216,20 +212,14 @@ protected:
 		    return (i);
 		}
 	    }
-	    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	    std::this_thread::sleep_for(std::chrono::nanoseconds(20));
 	}
     }
 
-    void enum_first (ValueTree <T> * tree, const NormPair<T>& norms)
+    void enum_first (ValueTree <T> * tree)
     {
         if (tree->level < 0)
         {
-	    // enum_second_job<T> *job;
-
-// 	    std::vector<T*> *current_result_vector;
-// 	    std::vector < std::vector<T*> * > resultDumpDump;
-// 	    std::vector < T* > vectors_to_clean;
-// 	    std::vector < std::future <void> > futures;
             for (size_t i = 0; i < tree->vector_indices.size(); i++)
             {
 		T *first = (*m_lattice)[tree->vector_indices[i]];
@@ -238,12 +228,8 @@ protected:
                 //std::cout << "]" << std::endl;
                 if (first[m_current_variable] > 0) {
 		    int job_slot = wait_a_little();
-		    if (job_slot < 0 || job_slot >= NUMJOBS) {
-			std::cout << "an error occurred\n";
-			exit(1);
-		    }
 		    enum_second_job<T> *job = &(m_jobs[job_slot]);
-		    job->temp_vectors.first = first;
+		    job->first = first;
 		    std::future<void> fut;
 		    // We do start many new threads in this program
 		    // and once in a while this fails.  In this case,
@@ -255,10 +241,8 @@ protected:
 				std::launch::async,
 				&ParallelPottier<T>::enum_second,
 				this,
-				m_roots[norms.second], 
-				job->temp_vectors,
-				norms,
-				std::ref(*(job->result_vector)));
+				m_roots[m_currentNormPair.second],
+				job);
 			    start_success = true;
 			}
 			catch (std::system_error e){
@@ -276,54 +260,52 @@ protected:
         else
         {
             if (tree->zero != NULL)
-                enum_first (tree->zero, norms);
+                enum_first (tree->zero);
             for (size_t i = 0; i < tree->pos.size (); i++)
-                enum_first (tree->pos[i]->sub_tree, norms);
+                enum_first (tree->pos[i]->sub_tree);
             for (size_t i = 0; i < tree->neg.size (); i++)
-                enum_first (tree->neg[i]->sub_tree, norms);
+                enum_first (tree->neg[i]->sub_tree);
         }
     }
 
-    void enum_second (ValueTree <T> * tree, threeTempVectors<T>& tmp, const NormPair<T>& norms, std::vector<T*>& resultDump)
+    void enum_second (ValueTree <T> *tree, enum_second_job<T> *job)
     {
         if (tree->level < 0) // arrived at leaf
         {
             for (size_t i = 0; i < tree->vector_indices.size(); i++)
             {
-                tmp.second = (*m_lattice)[tree->vector_indices[i]];
+                job->second = (*m_lattice)[tree->vector_indices[i]];
                 // std::cout << "enum_second enumerated [";
                 // print_vector (std::cout, tmp.second, m_variables);
                 // std::cout << "]" << std::endl;
-                build_sum (tmp, norms, resultDump);
+                build_sum (job);
             }
-            if (tree->level >= 0)
-                enum_second (tree, tmp, norms, resultDump);
         }
         else if (tree->level == (int) m_current_variable)  // Comparing currently being lifted column
         {
-            T value = tmp.first[tree->level];
+            T value = job->first[tree->level];
             if (value <= 0)
                 for (size_t i = 0; i < tree->pos.size(); i++)
-                    enum_second (tree->pos[i]->sub_tree, tmp, norms, resultDump);
+                    enum_second (tree->pos[i]->sub_tree, job);
             if (value >= 0)
                 for (size_t i = 0; i < tree->neg.size(); i++)
-                    enum_second (tree->neg[i]->sub_tree, tmp, norms, resultDump);
+                    enum_second (tree->neg[i]->sub_tree, job);
         }
         else  // Comparing any other column
         {
-            T value = tmp.first[tree->level];
+            T value = job->first[tree->level];
             if (tree->zero != NULL)
-                enum_second (tree->zero,tmp, norms, resultDump);
+                enum_second (tree->zero, job);
             if (value >= 0)
                 for (size_t i = 0; i < tree->pos.size(); i++)
-                    enum_second (tree->pos[i]->sub_tree,tmp, norms, resultDump);
+                    enum_second (tree->pos[i]->sub_tree, job);
             if (value <= 0)
                 for (size_t i = 0; i < tree->neg.size(); i++)
-                    enum_second (tree->neg[i]->sub_tree,tmp, norms, resultDump);
+                    enum_second (tree->neg[i]->sub_tree, job);
         }
     }
 
-    bool enum_reducer (ValueTree <T> * tree, threeTempVectors<T>& tmp)
+    bool enum_reducer (ValueTree <T> * tree, T *vec)
     {
         if (tree->level < 0)
         {
@@ -335,7 +317,7 @@ protected:
                 {
                     if (reducer[j] < 0)
                     {
-                        if (tmp.sum[j] >= 0 || reducer[j] < tmp.sum[j])
+                        if (vec[j] >= 0 || reducer[j] < vec[j])
                         {
                             flag = false;
                             break;
@@ -343,7 +325,7 @@ protected:
                     }
                     else if (reducer[j] > 0)
                     {
-                        if (tmp.sum[j] <= 0 || reducer[j] > tmp.sum[j])
+                        if (vec[j] <= 0 || reducer[j] > vec[j])
                         {
                             flag = false;
                             break;
@@ -353,7 +335,7 @@ protected:
                 if (flag)
                 {
                     //std::cout << "Reduced (";
-                    //print_vector (std::cout, tmp.sum, m_current_variable+1);
+                    //print_vector (std::cout, vec, m_current_variable+1);
                     //std::cout << ") by (";
                     //print_vector (std::cout, reducer, m_current_variable+1);
                     //std::cout << ")" << std::endl;
@@ -364,14 +346,14 @@ protected:
         }
         else
         {
-            T value = tmp.sum[tree->level];
+            T value = vec[tree->level];
             if (value > 0)
             {
                 for (auto iter = tree->pos.begin (); iter != tree->pos.end(); iter++)
                 {
                     if ((*iter)->value > value)
                         break;
-                    if (enum_reducer ((*iter)->sub_tree, tmp))
+                    if (enum_reducer ((*iter)->sub_tree, vec))
                         return true;
                 }
             }
@@ -381,19 +363,19 @@ protected:
                 {
                     if ((*iter)->value < value)
                         break;
-                    if (enum_reducer ((*iter)->sub_tree, tmp))
+                    if (enum_reducer ((*iter)->sub_tree, vec))
                         return true;
                 }
                 
             }
             if (tree->zero != NULL)
-                if (enum_reducer (tree->zero, tmp))
+                if (enum_reducer (tree->zero, vec))
                     return true;
         }
         return false;
     }
 
-    void build_sum (threeTempVectors<T>& tmp, const NormPair<T>& norms, std::vector<T*>& resultDump)
+    void build_sum (enum_second_job<T> *job)
     {
         // std::cout << "buildSum (";
         // print_vector (std::cout, tmp.first, m_variables);
@@ -401,58 +383,42 @@ protected:
         // print_vector (std::cout, tmp.second, m_variables);
         // std::cout << ")" << std::endl;
 
-        if (tmp.first == tmp.second)
+        if (job->first == job->second)
             return;
 
         //count_builds++;
 
-        if (tmp.first[m_current_variable] <= 0 && tmp.second[m_current_variable] <= 0)
+        if (job->first[m_current_variable] <= 0 && job->second[m_current_variable] <= 0)
             return;
-        if (tmp.first[m_current_variable] >= 0 && tmp.second[m_current_variable] >= 0)
+        if (job->first[m_current_variable] >= 0 && job->second[m_current_variable] >= 0)
             return;
 
         for (size_t i = 0; i < m_current_variable; i++)
         {
-            if (tmp.first[i] < 0 && tmp.second[i] > 0)
+            if (job->first[i] < 0 && job->second[i] > 0)
                 return;
-            if (tmp.first[i] > 0 && tmp.second[i] < 0)
+            if (job->first[i] > 0 && job->second[i] < 0)
                 return;
         }
 
 	// TODO: Quickcheck goes here
 
-        //bool flag = false;
         for (size_t i = 0; i < m_variables; i++)
         {
-            tmp.sum[i] = tmp.first[i] + tmp.second[i];
-            //if (tmp.second[i] != 0)
-            //    flag = true;
-
-//	    int current_precision = calcPrecision (tmp.sum[i]);
-//	    int max_precision = maxPrecision (tmp.sum[i]);
-//	    if (max_precision > 0 && current_precision + 1 >= max_precision)
-//	    {
-//		throw PrecisionException (max_precision);
-//	    }
+            job->sum[i] = job->first[i] + job->second[i];
         }
-        //if (!flag)
-        //    std::cerr << "\n\nGENERATED ZERO VECTOR!!!!\n\n" << std::endl;
 
 	// This is equal to norms.sum, no need to recompute
-        // T norm = norm_vector (tmp.sum, m_current_variable);
+        // T norm = norm_vector (job->sum, m_current_variable);
 
-//        if (norm == 0)
-//            return;
-
-        // TODO: norm / 2 ??
-        for (auto iter = m_roots.begin (); iter != m_roots.end() && iter->first <= norms.sum/2; iter++)
+        for (auto iter = m_roots.begin (); iter != m_roots.end() && iter->first <= m_currentNormPair.sum/2; iter++)
         {
-            if (enum_reducer (iter->second, tmp))
+            if (enum_reducer (iter->second, job->sum))
                 return;
         }
 
 	// Delegate clean-up to receiver of the resultDump
-	resultDump.push_back(copy_vector<T> (tmp.sum, m_variables));
+	job->result_vector->push_back(copy_vector<T> (job->sum, m_variables));
     }
 
 /*
@@ -653,24 +619,24 @@ protected:
         }
     }
 
-    void complete (const NormPair<T>& norms)
+    void complete ()
     {
 	if (m_controller != NULL)
-	    m_controller->log_status (m_current_variable+1, norms.sum, m_maxnorm, norms.first, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
-        //std::cout << "Variable: " << m_current_variable+1 << ", Sum: " << norms.first << " + " << norms.second << " = " << norms.sum << ", Solutions = " << m_lattice->vectors () << std::endl;
+	    m_controller->log_status (m_current_variable+1, m_currentNormPair.sum, m_maxnorm, m_currentNormPair.first, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
+        //std::cout << "Variable: " << m_current_variable+1 << ", Sum: " << m_currentNormPair.first << " + " << m_currentNormPair.second << " = " << m_currentNormPair.sum << ", Solutions = " << m_lattice->vectors () << std::endl;
 
         //dump_trees ();
 
-        if ((m_roots.find (norms.first) != m_roots.end ()) && (m_roots.find (norms.second) != m_roots.end ()))
+        if ((m_roots.find (m_currentNormPair.first) != m_roots.end ()) && (m_roots.find (m_currentNormPair.second) != m_roots.end ()))
         {
 	    for (int i = 0; i < NUMJOBS; i++){
 		m_jobsFree[i] = true;
-		m_jobs[i].temp_vectors.sum = create_vector <T> (m_variables);
+		m_jobs[i].sum = create_vector <T> (m_variables);
 		m_jobs[i].result_vector = new std::vector<T*>;
 	    }
-            //std::cout << "enum_first (roots[" << norms.first << "])" << std::endl;
+            //std::cout << "enum_first (roots[" << m_currentNormPair.first << "])" << std::endl;
 	    // The following call starts a lot of jobs:
-            enum_first (m_roots[norms.first], norms);
+            enum_first (m_roots[m_currentNormPair.first]);
             //std::cout << "enum_first finished." << std::endl;
 
 	    // All jobs are scheduled now.  Wait for all of them to finish.
@@ -684,14 +650,19 @@ protected:
 	    }
 
 	    for (int i = 0; i < NUMJOBS; i++){
-		delete_vector<T> (m_jobs[i].temp_vectors.sum);
+		delete_vector<T> (m_jobs[i].sum);
 		delete m_jobs[i].result_vector;
 	    }
         }
     }
 
+// non-copyable:
+private:
+    ParallelPottier( const ParallelPottier& other ) = delete; // non construction-copyable
+    ParallelPottier& operator=( const ParallelPottier& ) = delete; // non copyable
+
 public:
-    ParallelPottier () { };
+    ParallelPottier () : m_currentNormPair (0,0) { };
 
     void init (LinearSystem <T> * system, Controller <T>* controller)
     {
@@ -850,12 +821,12 @@ public:
  	    while (current_norm < m_maxnorm) {
  		current_norm++;
  		std::cout << "Now doing norm "<< current_norm << " of " << m_maxnorm << " for variable " << m_current_variable+1 << " of " << m_variables << std::endl;
- 		std::vector < std::future <void> > m_futures;
 
 		for (auto it = m_norms.cbegin(); it != m_norms.cend(); it++){
 		    if (it->first.sum == current_norm) {
 			std::cout << "Starting job :" << it->first.first << "," << it->first.second << "\n";
-			complete (it->first);
+			m_currentNormPair = it->first;
+			complete ();
 		    }
 		}
 
