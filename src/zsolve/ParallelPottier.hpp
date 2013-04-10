@@ -340,7 +340,7 @@ protected:
                 {
                     if (reducer[j] < 0)
                     {
-                        if (tmp.sum[j] >= 0 || abs (reducer[j]) > abs (tmp.sum[j]))
+                        if (tmp.sum[j] >= 0 || reducer[j] < tmp.sum[j])
                         {
                             flag = false;
                             break;
@@ -348,7 +348,7 @@ protected:
                     }
                     else if (reducer[j] > 0)
                     {
-                        if (tmp.sum[j] <= 0 || abs (reducer[j]) > abs (tmp.sum[j]))
+                        if (tmp.sum[j] <= 0 || reducer[j] > tmp.sum[j])
                         {
                             flag = false;
                             break;
