@@ -201,28 +201,23 @@ protected:
     }
 
     int wait_a_little () { // returns job id.
-	int empty_job_id = -1;
-	while (empty_job_id == -1) {
+	while (1) {
 	    for (uint i = 0; i < NUMJOBS; i++){
 		if (m_jobsFree[i]) // good, just use i
 		    return i;
 		// Contrary to the standard, wait_for returns a bool.  Let's assume it means ready or not ready.
-		// std::future_status status = m_jobs[i].fut.wait_for(std::chrono::seconds(1));
-		bool status_ready = m_jobs[i].fut.wait_for(std::chrono::seconds(0));
-		if (status_ready) {
+		if (m_jobs[i].fut.wait_for(std::chrono::seconds(0))) {
 		    // This job is ready
 		    for (auto it = m_jobs[i].result_vector->begin(); it != m_jobs[i].result_vector->end(); it++){
 			m_current_norm_results.push_back(*it);
 		    }
 		    m_jobs[i].result_vector->clear();
 		    m_jobsFree[i] = true;
-		    empty_job_id = i;
+		    return (i);
 		}
 	    }
-	    if (empty_job_id==-1) 	// No job was ready
-		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	    std::this_thread::sleep_for(std::chrono::milliseconds(2));
 	}
-	return empty_job_id;
     }
 
     void enum_first (ValueTree <T> * tree, const NormPair<T>& norms)
