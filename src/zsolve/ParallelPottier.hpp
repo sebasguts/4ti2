@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #ifndef _4ti2_zsolve__ParallelPottier_
 #define _4ti2_zsolve__ParallelPottier_
 
-#define NUMJOBS 20
+#define NUMJOBS 100
 
 #include <algorithm>
 #include <chrono>
@@ -77,8 +77,8 @@ protected:
     NormMap m_norms;
     RootMap m_roots; ///< roots of valuetrees
 
-    std::mutex m_resultMapMutex;
-    std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
+    // std::map <NormPair <T>, std::vector <T*> > m_resultMap; // Locations to store result vectors
+    std::vector <T*> m_current_norm_results;
 
     enum_second_job<T> m_jobs[NUMJOBS];
     bool m_jobsFree[NUMJOBS];
@@ -200,7 +200,7 @@ protected:
         insert_tree (m_roots[norm], vid, true);
     }
 
-    int wait_a_little (std::vector<T*>& results) { // returns job id.
+    int wait_a_little () { // returns job id.
 	int empty_job_id = -1;
 	while (empty_job_id == -1) {
 	    for (uint i = 0; i < NUMJOBS; i++){
@@ -212,7 +212,7 @@ protected:
 		if (status_ready) {
 		    // This job is ready
 		    for (auto it = m_jobs[i].result_vector->begin(); it != m_jobs[i].result_vector->end(); it++){
-			results.push_back(*it);
+			m_current_norm_results.push_back(*it);
 		    }
 		    m_jobs[i].result_vector->clear();
 		    m_jobsFree[i] = true;
@@ -225,7 +225,7 @@ protected:
 	return empty_job_id;
     }
 
-    void enum_first (ValueTree <T> * tree, const NormPair<T>& norms, std::vector<T*>& results)
+    void enum_first (ValueTree <T> * tree, const NormPair<T>& norms)
     {
         if (tree->level < 0)
         {
@@ -242,7 +242,7 @@ protected:
                 //print_vector (std::cout, m_first_vector, m_variables);
                 //std::cout << "]" << std::endl;
                 if (first[m_current_variable] > 0) {
-		    int job_slot = wait_a_little(results);
+		    int job_slot = wait_a_little();
 		    if (job_slot < 0 || job_slot >= NUMJOBS) {
 			std::cout << "an error occurred\n";
 			exit(1);
@@ -281,11 +281,11 @@ protected:
         else
         {
             if (tree->zero != NULL)
-                enum_first (tree->zero, norms, results);
+                enum_first (tree->zero, norms);
             for (size_t i = 0; i < tree->pos.size (); i++)
-                enum_first (tree->pos[i]->sub_tree, norms, results);
+                enum_first (tree->pos[i]->sub_tree, norms);
             for (size_t i = 0; i < tree->neg.size (); i++)
-                enum_first (tree->neg[i]->sub_tree, norms, results);
+                enum_first (tree->neg[i]->sub_tree, norms);
         }
     }
 
@@ -674,9 +674,8 @@ protected:
 		m_jobs[i].result_vector = new std::vector<T*>;
 	    }
             //std::cout << "enum_first (roots[" << norms.first << "])" << std::endl;
-	    std::vector<T*> result;
 	    // The following call starts a lot of jobs:
-            enum_first (m_roots[norms.first], norms, result);
+            enum_first (m_roots[norms.first], norms);
             //std::cout << "enum_first finished." << std::endl;
 
 	    // All jobs are scheduled now.  Wait for all of them to finish.
@@ -685,13 +684,10 @@ protected:
 		    continue;
 		m_jobs[i].fut.wait();
 		for (auto it = m_jobs[i].result_vector->begin(); it != m_jobs[i].result_vector->end(); it++){
-		    result.push_back (*it);
+		    m_current_norm_results.push_back (*it);
 		}
 	    }
 
-	    m_resultMapMutex.lock();
-	    m_resultMap[norms] = std::move(result);
-	    m_resultMapMutex.unlock();
 	    for (int i = 0; i < NUMJOBS; i++){
 		delete_vector<T> (m_jobs[i].temp_vectors.sum);
 		delete m_jobs[i].result_vector;
@@ -855,7 +851,7 @@ public:
             // T old_sum = -1;
 
  	    T current_norm = 0;
- 	    // The big job-loop
+ 	    // The job-loop
  	    while (current_norm < m_maxnorm) {
  		current_norm++;
  		std::cout << "Now doing norm "<< current_norm << " of " << m_maxnorm << " for variable " << m_current_variable+1 << " of " << m_variables << std::endl;
@@ -865,56 +861,37 @@ public:
 		    if (it->first.sum == current_norm) {
 			std::cout << "Starting job :" << it->first.first << "," << it->first.second << "\n";
 			complete (it->first);
-//  			std::future<void> fut = std::async(
-//  			    std::launch::async, // This directive makes it launch a new thread for each job (not good if there are many!)
-//  			    &ParallelPottier<T>::complete,
-//			    this,
-//  			    it->first);
-//			// This parallelization must be disabled until the enum_second_job pointer array is norm_job specific.
-//			fut.wait();
-//			m_futures.push_back (std::move(fut));
 		    }
 		}
-
-		// Synchronize:
-		std::cout << "Waiting for sync ... ";
-		std::cout.flush();
-		for (auto it = m_futures.begin(); it != m_futures.end(); ++it)
-		    it->wait();
-		std::cout << "Done.\n";
 
 		if (m_controller != NULL)
 		    m_controller->log_status (m_current_variable+1, current_norm, m_maxnorm, 0, m_lattice->vectors (), m_backup_frequency, m_backup_timer);
-
-		// collecting results
 		UniqueVectorsHash<T> *unique_res = new UniqueVectorsHash<T> (m_variables);
 		T *neg = create_vector<T> (m_variables);
-		for (auto it = m_norms.cbegin(); it != m_norms.cend(); it++) {
-		    if (it->first.sum == current_norm) {
-			if (m_resultMap[it->first].size() > 0){
-			    std::cout << "Inserting: " << m_resultMap[it->first].size() << " results.\n";
-			    m_maxnorm = it->first.sum * 2;
+		// collecting results
+		if (m_current_norm_results.size() > 0){
+		    std::cout << "Inserting: " << m_current_norm_results.size() << " results.\n";
+		    m_maxnorm = current_norm * 2;
+		}
+		for (auto jt = m_current_norm_results.begin(); jt != m_current_norm_results.end(); jt++ ){
+		    if (!unique_res->is_present(*jt)) {
+			// jt need not be deleted in this branch, can be reused
+			for (size_t i = 0; i < m_variables; i++){
+			    neg[i] = -(*jt)[i];
 			}
-			for (auto jt = m_resultMap[it->first].begin(); jt != m_resultMap[it->first].end(); jt++ ){
-			    if (!unique_res->is_present(*jt)) {
-				// jt need not be deleted in this branch, can be reused
-				for (size_t i = 0; i < m_variables; i++){
-				    neg[i] = -(*jt)[i];
-				}
-				// This copies *jt
-				insert_trees(*jt, it->first.sum);
-				// This pilfers *jt.
-				unique_res->insert(*jt);
-				insert_trees(neg, it->first.sum);
-				unique_res->insert_copy(neg);
-			    }
-			    else {
-				delete_vector (*jt);
-			    }
-			}
+			// This copies *jt
+			insert_trees(*jt, current_norm);
+			// This pilfers *jt.
+			unique_res->insert(*jt);
+			insert_trees(neg, current_norm);
+			unique_res->insert_copy(neg);
+		    }
+		    else {
+			delete_vector (*jt);
 		    }
 		}
 		delete_vector (neg);
+		m_current_norm_results.clear();
 		delete unique_res;
 	    } // looping the current norm
 		
